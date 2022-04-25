@@ -37,17 +37,22 @@ class StefUtil:
     Effectively curried functions with my enforced project & dataset structure
         Pass in file paths
     """
-    def __init__(self, base_path: str, proj_dir: str, pkg_nm: str, dset_dir: str):
+    def __init__(
+            self, base_path: str = None, project_dir: str = None, package_name: str = None,
+            dataset_dir: str = None, model_dir: str = None
+    ):
         """
-        :param base_path: Root directory that contains a directory for project & a directory for data
-        :param proj_dir: Project directory name
-        :param pkg_nm: Project main source files package directory name
-        :param dset_dir: Data directory name
+        :param base_path: Absolute system path for root directory that contains a project folder & a data folder
+        :param project_dir: Project root directory name that contains a folder for main source files
+        :param package_name: python package/Module name which contain main source files
+        :param dataset_dir: Directory name that contains datasets
+        :param model_dir: Directory name that contains trained models
         """
         self.base_path = base_path
-        self.proj_dir = proj_dir
-        self.pkg_nm = pkg_nm
-        self.dset_dir = dset_dir
+        self.proj_dir = project_dir
+        self.pkg_nm = package_name
+        self.dset_dir = dataset_dir
+        self.model_dir = model_dir
 
         self.plot_dir = os_join(self.base_path, self.proj_dir, 'plots')
 
