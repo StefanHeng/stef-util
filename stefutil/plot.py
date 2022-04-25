@@ -48,7 +48,7 @@ def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
         current_width = patch.get_width() if is_vert else patch.get_height()
         diff = current_width - width
         patch.set_width(width) if is_vert else patch.set_height(width)
-        patch.set_x(patch.get_x() + diff * .5) if is_vert else patch.set_y(patch.get_y() + diff * .5)
+        patch.set_x(patch.get_x() + diff * 0.5) if is_vert else patch.set_y(patch.get_y() + diff * 0.5)
 
 
 def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r') -> Iterable:

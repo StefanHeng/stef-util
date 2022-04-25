@@ -37,11 +37,6 @@ def fmt_num(num: Union[float, int], suffix: str = '') -> str:
     """
     Convert number to human-readable format, in e.g. Thousands, Millions
     """
-    # if not hasattr(fmt_num, 'posts'):
-    #     fmt_num.posts = ['', 'K', 'M', 'B', 'T']
-    # n = float(n)
-    # idx_ = max(0, min(len(fmt_num.posts) - 1, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
-    # return '{:.0f}{}'.format(n / 10 ** (3 * idx_), fmt_num.posts[idx_])
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1000.0:
             return "%3.1f%s%s" % (num, unit, suffix)
@@ -334,4 +329,3 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
     handler.setFormatter(MyFormatter(with_color=typ == 'stdout'))
     logger.addHandler(handler)
     return logger
-

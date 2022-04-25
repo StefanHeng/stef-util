@@ -11,9 +11,7 @@ from stefutil.container import get
 from stefutil.prettier import now
 
 
-__all__ = [
-    'StefConfig', 'StefUtil'
-]
+__all__ = ['StefConfig', 'StefUtil']
 
 
 class StefConfig:
