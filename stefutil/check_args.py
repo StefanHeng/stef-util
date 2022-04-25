@@ -19,10 +19,10 @@ class CheckArg:
     """
 
     @staticmethod
-    def check_mismatch(arg_type: str, arg_value: str, expected_values: List[str]):
-        if arg_value not in expected_values:
-            raise ValueError(f'Unexpected {logi(arg_type)}: '
-                             f'expect one of {logi(expected_values)}, got {logi(arg_value)}')
+    def check_mismatch(display_name: str, val: str, accepted_values: List[str]):
+        if val not in accepted_values:
+            raise ValueError(f'Unexpected {logi(display_name)}: '
+                             f'expect one of {logi(accepted_values)}, got {logi(val)}')
 
     def __init__(self):
         self.d_name2func = dict()
@@ -36,12 +36,11 @@ class CheckArg:
 
 
 ca = CheckArg()
+ca.cache_mismatch(  # See `stefutil::plot.py`
+    'Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal']
+)
 
 
 if __name__ == '__main__':
-    ca.cache_mismatch(
-        'Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal']
-    )
-
     ori = 'v'
     ca(bar_orient=ori)

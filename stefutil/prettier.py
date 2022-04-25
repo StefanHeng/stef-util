@@ -21,7 +21,7 @@ from stefutil.primitive import is_float
 
 
 __all__ = [
-    'fmt_num', 'fmt_sizeof', 'fmt_dt', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'now',
+    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'now',
     'log', 'log_s', 'logi', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger'
 ]
@@ -53,18 +53,18 @@ def fmt_sizeof(num: int, suffix='B') -> str:
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def fmt_dt(secs: Union[int, float, datetime.timedelta]) -> str:
+def fmt_delta(secs: Union[int, float, datetime.timedelta]) -> str:
     if isinstance(secs, datetime.timedelta):
         secs = secs.seconds + (secs.microseconds/1e6)
     if secs >= 86400:
         d = secs // 86400  # // floor division
-        return f'{round(d)}d{fmt_dt(secs-d*86400)}'
+        return f'{round(d)}d{fmt_delta(secs - d * 86400)}'
     elif secs >= 3600:
         h = secs // 3600
-        return f'{round(h)}h{fmt_dt(secs-h*3600)}'
+        return f'{round(h)}h{fmt_delta(secs - h * 3600)}'
     elif secs >= 60:
         m = secs // 60
-        return f'{round(m)}m{fmt_dt(secs-m*60)}'
+        return f'{round(m)}m{fmt_delta(secs - m * 60)}'
     else:
         return f'{round(secs)}s'
 
@@ -200,16 +200,17 @@ def log_dict_p(d: Dict, **kwargs) -> str:
     return log_dict(d, with_color=False, sep='=', **kwargs)
 
 
-def hex2rgb(hx: str) -> Union[Tuple[int], Tuple[float]]:
+def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int], Tuple[float]]:
     # Modified from https://stackoverflow.com/a/62083599/10732321
     if not hasattr(hex2rgb, 'regex'):
         hex2rgb.regex = re.compile(r'#[a-fA-F\d]{3}(?:[a-fA-F\d]{3})?$')
     m = hex2rgb.regex.match(hx)
     assert m is not None
     if len(hx) <= 4:
-        return tuple(int(hx[i]*2, 16) for i in range(1, 4))
+        ret = tuple(int(hx[i]*2, 16) for i in range(1, 4))
     else:
-        return tuple(int(hx[i:i+2], 16) for i in range(1, 7, 2))
+        ret = tuple(int(hx[i:i+2], 16) for i in range(1, 7, 2))
+    return tuple(i/255 for i in ret) if normalize else ret
 
 
 class MyTheme:

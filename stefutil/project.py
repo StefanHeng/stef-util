@@ -2,6 +2,7 @@
 Project & project file structure related
 """
 
+import os
 import json
 from os.path import join as os_join
 
@@ -54,9 +55,10 @@ class StefUtil:
         self.dset_dir = dataset_dir
         self.model_dir = model_dir
 
-        self.plot_dir = os_join(self.base_path, self.proj_dir, 'plots')
+        self.plot_path = os_join(self.base_path, self.proj_dir, 'plots')
+        os.makedirs(self.plot_path, exist_ok=True)
 
     def save_fig(self, title, save=True):
         if save:
             fnm = f'{title}, {now(for_path=True)}.png'
-            plt.savefig(os_join(self.plot_dir, fnm), dpi=300)
+            plt.savefig(os_join(self.plot_path, fnm), dpi=300)
