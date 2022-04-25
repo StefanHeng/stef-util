@@ -2,7 +2,8 @@
 My utility functions to start machine learning projects 
 
 ## Usage 
-```pycon
+```python
+from stefutil import *
 # Change those to your project
 from os.path import join as os_join
 BASE_PATH = '/Users/stefanh/Documents/UMich/Research/Clarity Lab/Zeroshot Text Classification'
