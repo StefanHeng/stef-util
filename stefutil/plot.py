@@ -8,11 +8,11 @@ from typing import List, Iterable, Callable, Any, Union
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import CategoricalDtype
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from stefutil.check_args import ca
+from stefutil.container import df_col2cat_col
 
 
 __all__ = [
@@ -95,8 +95,8 @@ def barplot(
         df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
         x_order = x
     if x_order is not None:
-        cat = CategoricalDtype(categories=x_order, ordered=True)  # Enforce ordering in plot
-        df['x'] = df['x'].astype(cat, copy=False)
+        x_order: List[str]
+        df_col2cat_col(df, 'x', categories=x_order)
     is_vert = orient in ['v', 'vertical']
     x, y = ('x', 'y') if is_vert else ('y', 'x')
     if ax:

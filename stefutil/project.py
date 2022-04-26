@@ -56,7 +56,9 @@ class StefUtil:
         self.model_dir = model_dir
 
         self.plot_path = os_join(self.base_path, self.proj_dir, 'plot')
+        self.eval_path = os_join(self.base_path, self.proj_dir, 'eval')
         os.makedirs(self.plot_path, exist_ok=True)
+        os.makedirs(self.eval_path, exist_ok=True)
 
     def save_fig(self, title, save=True):
         if save:

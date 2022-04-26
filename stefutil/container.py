@@ -8,6 +8,8 @@ from functools import reduce
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
+from pandas.api.types import CategoricalDtype
 import torch
 
 
@@ -121,6 +123,15 @@ def compress(lst: List[T]) -> List[Tuple[T, int]]:
 
 def np_index(arr, idx):
     return np.where(arr == idx)[0][0]
+
+
+def df_col2cat_col(df: pd.DataFrame, col_name: str, categories: List[str]) -> pd.DataFrame:
+    """
+    Enforced ordered categories to a column, the dataframe is modified in-place
+    """
+    cat = CategoricalDtype(categories=categories, ordered=True)  # Enforce order by definition
+    df[col_name] = df[col_name].astype(cat, copy=False)
+    return df
 
 
 def pt_sample(d: Dict[K, Union[float, Any]]) -> K:
