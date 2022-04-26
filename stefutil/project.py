@@ -55,7 +55,7 @@ class StefUtil:
         self.dset_dir = dataset_dir
         self.model_dir = model_dir
 
-        self.plot_path = os_join(self.base_path, self.proj_dir, 'plots')
+        self.plot_path = os_join(self.base_path, self.proj_dir, 'plot')
         os.makedirs(self.plot_path, exist_ok=True)
 
     def save_fig(self, title, save=True):
