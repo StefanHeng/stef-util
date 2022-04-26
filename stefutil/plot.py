@@ -4,7 +4,7 @@ plotting
 see also `StefUtil.save_fig`
 """
 
-from typing import Iterable
+from typing import List, Iterable, Callable, Any, Union
 
 import numpy as np
 import pandas as pd
@@ -77,14 +77,26 @@ def set_color_bar(vals, ax, color_palette: str = 'Spectral_r', orientation: str 
 
 
 def barplot(
-        x: Iterable[str], y: Iterable[float], orient: str = 'v', with_value: bool = True, width: float = 0.5,
-        xlabel: str = None, ylabel: str = None,
-        ax=None, palette=None, **kwargs
+        data: pd.DataFrame = None,
+        x: Union[Iterable, str] = None, y: Union[Iterable[float], str] = None,
+        x_order: Iterable[str] = None,
+        orient: str = 'v', with_value: bool = False, width: [float, bool] = 0.5,
+        xlabel: str = None, ylabel: str = None, yscale: str = None, title: str = None,
+        ax=None, palette: Union[str, List, Any] = 'husl', callback: Callable[[plt.Axes], None] = None,
+        show: bool = True,
+        **kwargs
 ):
-    ca(orient=orient)
-    df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
-    cat = CategoricalDtype(categories=x, ordered=True)  # Enforce ordering in plot
-    df['x'] = df['x'].astype(cat, copy=False)
+    ca(bar_orient=orient)
+    if data is not None:
+        df = data
+        assert isinstance(x, str) and isinstance(y, str)
+        df['x'], df['y'] = df[x], df[y]
+    else:
+        df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
+        x_order = x
+    if x_order is not None:
+        cat = CategoricalDtype(categories=x_order, ordered=True)  # Enforce ordering in plot
+        df['x'] = df['x'].astype(cat, copy=False)
     is_vert = orient in ['v', 'vertical']
     x, y = ('x', 'y') if is_vert else ('y', 'x')
     if ax:
@@ -98,3 +110,12 @@ def barplot(
         change_bar_width(ax, width, orient=orient)
     ax.set_xlabel(xlabel) if is_vert else ax.set_ylabel(xlabel)  # if None just clears the label
     ax.set_ylabel(ylabel) if is_vert else ax.set_xlabel(ylabel)
+    if yscale:
+        ax.set_yscale(yscale)
+    if title:
+        ax.set_title(title)
+    if callback:
+        callback(ax)
+    if show:
+        plt.show()
+    return ax
