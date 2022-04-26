@@ -37,7 +37,7 @@ def batched_conc_map(
         fn: Callable[[T], K],
         lst: List[T], n_worker: int = os.cpu_count(),
         batch_size: int = None,
-        with_tqdm: Union[bool, tqdm] = False  # TODO: doesn't seem to work as expected
+        with_tqdm: Union[bool, tqdm] = False
 ) -> List[K]:
     """
     Batched concurrent mapping, map elements in list in batches
