@@ -14,10 +14,10 @@ def get_hostname() -> str:
     return os.uname().nodename
 
 
-def stem(path_: Union[str, pathlib.Path], ext=False) -> str:
+def stem(path: Union[str, pathlib.Path], keep_ext=False) -> str:
     """
-    :param path_: A potentially absolute path to a file
-    :param ext: If True, file extensions is preserved
+    :param path: A potentially full path to a file
+    :param keep_ext: If True, file extensions is preserved
     :return: The file name, without parent directories
     """
-    return os.path.basename(path_) if ext else pathlib.Path(path_).stem
+    return os.path.basename(path) if keep_ext else pathlib.Path(path).stem

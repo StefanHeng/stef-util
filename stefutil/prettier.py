@@ -283,7 +283,7 @@ class MyFormatter(logging.Formatter):
         self.with_color = with_color
 
         sty_kw, reset = MyFormatter.blue, MyFormatter.RESET
-        color_time = f'{color_time}{MyFormatter.KW_TIME}{sty_kw}| {reset}'
+        color_time = f'{color_time}{MyFormatter.KW_TIME}{sty_kw}|{reset}'
 
         def args2fmt(args_):
             if self.with_color:
