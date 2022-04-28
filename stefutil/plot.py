@@ -42,7 +42,7 @@ def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
 
     Credit: https://stackoverflow.com/a/44542112/10732321
     """
-    ca(orient=orient)
+    ca(bar_orient=orient)
     is_vert = orient in ['v', 'vertical']
     for patch in ax.patches:
         current_width = patch.get_width() if is_vert else patch.get_height()
@@ -111,7 +111,7 @@ def barplot(
     ax.set_xlabel(xlabel) if is_vert else ax.set_ylabel(xlabel)  # if None just clears the label
     ax.set_ylabel(ylabel) if is_vert else ax.set_xlabel(ylabel)
     if yscale:
-        ax.set_yscale(yscale)
+        ax.set_yscale(yscale) if is_vert else ax.set_xscale(yscale)
     if title:
         ax.set_title(title)
     if callback:
