@@ -62,7 +62,17 @@ class StefUtil:
         os.makedirs(self.plot_path, exist_ok=True)
         os.makedirs(self.eval_path, exist_ok=True)
 
-    def save_fig(self, title, save=True):
+    def save_fig(self, title, save=True, prefix_time: bool = True):
+        """
+        :param title: Rendered figure title
+        :param save: If true, figure is saved to project plot directory
+            No effect otherwise
+        :param prefix_time: If true, timestamp is prefixed before filename
+            Otherwise, timestamp is appended to the end
+        """
         if save:
-            fnm = f'{title}, {now(for_path=True)}.png'
+            if prefix_time:
+                fnm = f'{now(for_path=True)}_{title}.png'
+            else:
+                fnm = f'{title}, {now(for_path=True)}.png'
             plt.savefig(os_join(self.plot_path, fnm), dpi=300)

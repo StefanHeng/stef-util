@@ -18,7 +18,7 @@ def profile_runtime(callback: Callable, sleep: Union[float, int] = None):
     callback()
     profiler.disable()
     stats = pstats.Stats(profiler).sort_stats('cumtime')
-    if sleep != 0:    # Sometimes, the top rows in `print_states` are now shown properly
+    if sleep:    # Sometimes, the top rows in `print_states` are now shown properly
         time.sleep(sleep)
     stats.print_stats()
 
