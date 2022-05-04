@@ -287,9 +287,9 @@ class MyFormatter(logging.Formatter):
 
         def args2fmt(args_):
             if self.with_color:
-                return color_time + self.fmt_meta(*args_) + f'{sty_kw} - {reset}{MyFormatter.KW_MSG}' + reset
+                return color_time + self.fmt_meta(*args_) + f'{sty_kw}: {reset}{MyFormatter.KW_MSG}' + reset
             else:
-                return f'{MyFormatter.KW_TIME}| {self.fmt_meta(*args_)} - {MyFormatter.KW_MSG}'
+                return f'{MyFormatter.KW_TIME}| {self.fmt_meta(*args_)}: {MyFormatter.KW_MSG}'
 
         self.formats = {level: args2fmt(args) for level, args in MyFormatter.LVL_MAP.items()}
         self.formatter = {
@@ -302,7 +302,7 @@ class MyFormatter(logging.Formatter):
                f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}' \
                f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}' \
                f'{MyFormatter.blue}:{MyFormatter.purple}{MyFormatter.KW_LINENO}' \
-               f'{MyFormatter.blue}, {meta_style}{meta_abv}{MyFormatter.RESET}'
+               f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}'
         else:
             return f'[{MyFormatter.KW_NAME}] {MyFormatter.KW_FUNC_NM}::{MyFormatter.KW_FNM}' \
                    f':{MyFormatter.KW_LINENO}, {meta_abv}'
@@ -330,3 +330,8 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
     handler.setFormatter(MyFormatter(with_color=typ == 'stdout'))
     logger.addHandler(handler)
     return logger
+
+
+if __name__ == '__main__':
+    lg = get_logger('test')
+    lg.info('test')
