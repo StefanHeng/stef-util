@@ -9,13 +9,16 @@ import json
 import math
 import logging
 import datetime
-from typing import Tuple, Dict, Union
+from typing import Tuple, List, Dict, Any, Union
 from pygments import highlight, lexers, formatters
 from collections import OrderedDict
+from collections.abc import Sized
 
 import pandas as pd
+from transformers import TrainerCallback
 import sty
 import colorama
+from tqdm.auto import tqdm
 
 from stefutil.primitive import is_float
 
@@ -330,6 +333,129 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
     handler.setFormatter(MyFormatter(with_color=typ == 'stdout'))
     logger.addHandler(handler)
     return logger
+
+
+class MlPrettier:
+    """
+    My utilities for deep learning training logging
+    """
+    def __init__(self, ref: Dict[str, Any] = None, metric_keys: List[str] = None):
+        """
+        :param ref: Reference that are potentially needed
+            i.e. for logging epoch/step, need the total #
+        :param metric_keys: keys that are considered metric
+            Will be logged in [0, 100]
+        """
+        self.ref = ref
+        self.metric_keys = metric_keys or ['acc', 'recall', 'auc']
+
+    def __call__(self, d: Union[str, Dict], val=None) -> Union[Any, Dict[str, Any]]:
+        """
+        :param d: If str, prettify a single value
+            Otherwise, prettify a dict
+        """
+        is_dict = isinstance(d, dict)
+        if not ((isinstance(d, str) and val is not None) or is_dict):
+            raise ValueError('Either a key-value pair or a mapping is expected')
+        if is_dict:
+            d: Dict
+            return {k: self._pretty_single(k, v) for k, v in d.items()}
+        else:
+            return self._pretty_single(d, val)
+
+    def _pretty_single(self, key: str, val=None) -> Union[str, List[str], Dict[str, Any]]:
+        """
+        `val` processing is infered based on key
+        """
+        if key in ['step', 'epoch']:
+            k = next(iter(k for k in self.ref.keys() if key in k))
+            lim = self.ref[k]
+            assert isinstance(val, (int, float))
+            len_lim = len(str(lim))
+            if isinstance(val, int):
+                s_val = f'{val:>{len_lim}}'
+            else:
+                fmt = f'%{len_lim + 4}.3f'
+                s_val = fmt % val
+            return f'{s_val}/{lim}'  # Pad integer
+        elif 'loss' in key:
+            return f'{round(val, 4):7.4f}'
+        elif any(k in key for k in self.metric_keys):  # custom in-key-ratio metric
+            def _single(v):
+                return f'{round(v * 100, 2):6.2f}' if v is not None else '-'
+
+            if isinstance(val, list):
+                return [_single(v) for v in val]
+            elif isinstance(val, dict):
+                return {k: _single(v) for k, v in val.items()}
+            else:
+                return _single(val)
+        elif 'learning_rate' in key or 'lr' in key:
+            return f'{round(val, 7):.3e}'
+        else:
+            return val
+
+
+class MyProgressCallback(TrainerCallback):
+    """
+    My modification to the HF progress callback
+
+    1. Effectively remove all logging, keep only the progress bar w.r.t. this callback
+    2. Train tqdm for each epoch only
+    3. Option to disable progress bar for evaluation
+
+    Expects to start from whole epochs
+    """
+    def __init__(self, train_only: bool = False):
+        """
+        :param train_only: If true, disable progress bar for evaluation
+        """
+        self.training_bar = None
+        self.prediction_bar = None
+        self.train_only = train_only
+        self.step_per_epoch = None
+        self.current_step = None
+
+    def on_epoch_begin(self, args, state, control, **kwargs):
+        if state.is_local_process_zero:
+            n_ep = MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', int(state.epoch+1))
+            assert state.max_steps % state.num_train_epochs == 0
+            self.step_per_epoch = state.max_steps // state.num_train_epochs
+            self.training_bar = tqdm(total=self.step_per_epoch, desc=f'Epoch {n_ep}')
+        self.current_step = 0
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        pass
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if state.is_local_process_zero:
+            self.training_bar.close()
+            self.training_bar = None
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.is_local_process_zero:
+            self.training_bar.update(1)
+
+    def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
+        if not self.train_only:
+            if state.is_local_process_zero and isinstance(eval_dataloader.dataset, Sized):
+                if self.prediction_bar is None:
+                    self.prediction_bar = tqdm(total=len(eval_dataloader), leave=self.training_bar is None)
+                self.prediction_bar.update(1)
+
+    def on_evaluate(self, args, state, control, **kwargs):
+        if not self.train_only:
+            if state.is_local_process_zero:
+                if self.prediction_bar is not None:
+                    self.prediction_bar.close()
+                self.prediction_bar = None
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if state.is_local_process_zero and self.training_bar is not None:
+            _ = logs.pop("total_flos", None)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        pass
 
 
 if __name__ == '__main__':

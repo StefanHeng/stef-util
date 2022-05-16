@@ -57,6 +57,7 @@ class StefUtil:
 
         self.proj_path = os_join(self.base_path, self.proj_dir)
         self.dset_path = os_join(self.base_path, self.dset_dir)
+        self.model_path = os_join(self.base_path, self.model_dir)
         self.plot_path = os_join(self.base_path, self.proj_dir, 'plot')
         self.eval_path = os_join(self.base_path, self.proj_dir, 'eval')
         os.makedirs(self.plot_path, exist_ok=True)
