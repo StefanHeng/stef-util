@@ -9,7 +9,9 @@ import concurrent.futures
 from typing import List, Tuple, Iterable, Callable, TypeVar, Union
 
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
+
+from stefutil.check_args import ca
 
 
 __all__ = ['conc_map', 'batched_conc_map']
@@ -18,30 +20,76 @@ __all__ = ['conc_map', 'batched_conc_map']
 T = TypeVar('T')
 K = TypeVar('K')
 
-Map = Callable[[T], K]
-BatchedMap = Callable[[Tuple[List[T], int, int]], List[K]]
+MapFn = Callable[[T], K]
+BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 
-def conc_map(fn: Map, it: Iterable[T], with_tqdm=False) -> List[K]:
+def conc_map(
+        fn: MapFn, it: Iterable[T], with_tqdm=False, n_worker: int = os.cpu_count(), mode: str = 'thread'
+) -> List[K]:
     """
     Wrapper for `concurrent.futures.map`
 
     :param fn: A function
     :param it: A list of elements
-    :return: Iterator of `lst` elements mapped by `fn` with concurrency
     :param with_tqdm: If true, progress bar is shown
+    :param n_worker: Number of concurrent workers
+    :param mode: One of ['thread', 'process']
+        Function has to be pickleable if 'process'
+    :return: Iterator of `lst` elements mapped by `fn` with thread concurrency
     """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    ca.check_mismatch('Concurrency Mode', mode, ['thread', 'process'])
+    if with_tqdm:
+        assert mode != 'process', 'tqdm progress bar incompatible with multiprocessing'
+    cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
+    with cls(max_workers=n_worker) as executor:
         ret = list(tqdm(executor.map(fn, it), total=len(list(it)))) if with_tqdm else executor.map(fn, it)
     return ret
 
 
+"""
+classes instead of nested functions, pickleable for multiprocessing
+"""
+
+
+class Map:
+    def __init__(self, fn, pbar=None):
+        self.fn = fn
+        self.pbar = pbar
+
+    def __call__(self, x):
+        ret = self.fn(x)
+        if self.pbar:
+            self.pbar.update(1)
+        return ret
+
+
+class BatchedMap:
+    def __init__(self, fn, is_batched_fn: bool, pbar=None):
+        self.fn = fn if is_batched_fn else Map(fn, pbar)
+        self.pbar = pbar
+        self.is_batched_fn = is_batched_fn
+
+    def __call__(self, args):
+        # adhere to single-argument signature for `conc_map`
+        lst, s, e = args
+        if self.is_batched_fn:
+            ret = self.fn(lst[s:e])
+            if self.pbar:
+                # TODO: update on the element level may not give a good estimate of completion if too large a batch
+                self.pbar.update(e-s + 1)
+            return ret
+        else:
+            return [self.fn(lst[i]) for i in range(s, e)]
+
+
 def batched_conc_map(
-        fn: Union[Map, BatchedMap],
+        fn: Union[MapFn, BatchedMapFn],
         lst: Union[List[T], np.array], n_worker: int = os.cpu_count(),
         batch_size: int = None,
         with_tqdm: Union[bool, tqdm] = False,
         is_batched_fn: bool = False,
+        mode: str = 'thread'
 ) -> List[K]:
     """
     Batched concurrent mapping, map elements in list in batches
@@ -56,6 +104,7 @@ def batched_conc_map(
         progress is shown on an element-level if possible
     :param is_batched_fn: If true, `conc_map` is called on the function passed in,
         otherwise, A batched version is created internally
+    :param mode: One of ['thread', 'process']
 
     .. note:: Concurrently is not invoked if too little list elements given number of workers
         Force concurrency with `batch_size`
@@ -71,27 +120,9 @@ def batched_conc_map(
         if with_tqdm:
             pbar = tqdm(total=len(lst)) if with_tqdm is True else with_tqdm
 
-        if is_batched_fn:
-            def batched_map(lst__, s, e):
-                ret = fn(lst__[s:e])
-                if pbar:
-                    # update on an element level may not give a good estimate of completion if too large a batch
-                    pbar.update(e-s + 1)
-                return ret
-        else:
-            if with_tqdm:
-                def map_single(x):
-                    ret = fn(x)
-                    pbar.update(1)
-                    return ret
-            else:
-                map_single = fn
-
-            def batched_map(fnms_, s, e):
-                return [map_single(fnms_[i]) for i in range(s, e)]
-        map_out = conc_map(  # Expand the args
-            lambda args_: batched_map(*args_), [(lst, s, e) for s, e in zip(strts, ends)], with_tqdm=False
-        )
+        batched_map = BatchedMap(fn, is_batched_fn, pbar)
+        args = dict(with_tqdm=False, mode=mode, n_worker=n_worker)
+        map_out = conc_map(fn=batched_map, it=[(lst, s, e) for s, e in zip(strts, ends)], **args)
         for lst_ in map_out:
             lst_out.extend(lst_)
         return lst_out
