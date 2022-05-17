@@ -417,12 +417,21 @@ class MyProgressCallback(TrainerCallback):
         self.step_per_epoch = None
         self.current_step = None
 
+    @staticmethod
+    def _get_steps_per_epoch(state):
+        assert state.max_steps % state.num_train_epochs == 0
+        return state.max_steps // state.num_train_epochs
+
+    @staticmethod
+    def _get_curr_epoch(state) -> str:
+        return MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', int(state.epoch+1))
+
     def on_epoch_begin(self, args, state, control, **kwargs):
         if state.is_local_process_zero:
-            n_ep = MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', int(state.epoch+1))
-            assert state.max_steps % state.num_train_epochs == 0
-            self.step_per_epoch = state.max_steps // state.num_train_epochs
-            self.training_bar = tqdm(total=self.step_per_epoch, desc=f'Epoch {n_ep}')
+            if not self.step_per_epoch:
+                self.step_per_epoch = MyProgressCallback._get_steps_per_epoch(state)
+            ep = MyProgressCallback._get_curr_epoch(state)
+            self.training_bar = tqdm(total=self.step_per_epoch, desc=f'Train Epoch {ep}')
         self.current_step = 0
 
     def on_train_begin(self, args, state, control, **kwargs):
@@ -441,7 +450,9 @@ class MyProgressCallback(TrainerCallback):
         if not self.train_only:
             if state.is_local_process_zero and isinstance(eval_dataloader.dataset, Sized):
                 if self.prediction_bar is None:
-                    self.prediction_bar = tqdm(total=len(eval_dataloader), leave=self.training_bar is None)
+                    ep = MyProgressCallback._get_curr_epoch(state)
+                    desc = f'Eval Epoch {ep}'
+                    self.prediction_bar = tqdm(desc=desc, total=len(eval_dataloader), leave=self.training_bar is None)
                 self.prediction_bar.update(1)
 
     def on_evaluate(self, args, state, control, **kwargs):
