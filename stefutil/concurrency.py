@@ -6,10 +6,12 @@ intended for (potentially heavy) data processing
 
 import os
 import concurrent.futures
-from typing import List, Tuple, Iterable, Callable, TypeVar, Union
+from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
 
 import numpy as np
+from tqdm.std import tqdm as std_tqdm  # root for type check
 from tqdm.auto import tqdm
+from tqdm.contrib import concurrent as tqdm_concurrent
 
 from stefutil.check_args import ca
 
@@ -25,14 +27,15 @@ BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 
 def conc_map(
-        fn: MapFn, it: Iterable[T], with_tqdm=False, n_worker: int = os.cpu_count(), mode: str = 'thread'
-) -> List[K]:
+        fn: MapFn, it: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(), mode: str = 'thread'
+) -> Iterable[K]:
     """
     Wrapper for `concurrent.futures.map`
 
     :param fn: A function
     :param it: A list of elements
     :param with_tqdm: If true, progress bar is shown
+        If dict, treated as `tqdm` concurrent kwargs  # FYT `chunksize` is helpful
     :param n_worker: Number of concurrent workers
     :param mode: One of ['thread', 'process']
         Function has to be pickleable if 'process'
@@ -40,11 +43,13 @@ def conc_map(
     """
     ca.check_mismatch('Concurrency Mode', mode, ['thread', 'process'])
     if with_tqdm:
-        assert mode != 'process', 'tqdm progress bar incompatible with multiprocessing'
-    cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
-    with cls(max_workers=n_worker) as executor:
-        ret = list(tqdm(executor.map(fn, it), total=len(list(it)))) if with_tqdm else executor.map(fn, it)
-    return ret
+        cls = tqdm_concurrent.thread_map if mode == 'thread' else tqdm_concurrent.process_map
+        args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
+        return cls(fn, it, max_workers=n_worker, **args)
+    else:
+        cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
+        with cls(max_workers=n_worker) as executor:
+            return executor.map(fn, it)
 
 
 """
@@ -87,7 +92,7 @@ def batched_conc_map(
         fn: Union[MapFn, BatchedMapFn],
         lst: Union[List[T], np.array], n_worker: int = os.cpu_count(),
         batch_size: int = None,
-        with_tqdm: Union[bool, tqdm] = False,
+        with_tqdm: Union[bool, dict, tqdm] = False,
         is_batched_fn: bool = False,
         mode: str = 'thread'
 ) -> List[K]:
@@ -118,11 +123,26 @@ def batched_conc_map(
 
         pbar = None
         if with_tqdm:
-            pbar = tqdm(total=len(lst)) if with_tqdm is True else with_tqdm
+            tqdm_args = dict(mode=mode, n_worker=n_worker)
+            if mode == 'thread':  # Able to show progress on element level
+                # so create such a progress bar & disable for `conc_map`
+                tqdm_args['with_tqdm'] = False
+                if isinstance(with_tqdm, bool):
+                    pbar = tqdm(total=n)
+                elif isinstance(with_tqdm, dict):
+                    _args = dict(total=n)
+                    _args.update(with_tqdm)
+                    pbar = tqdm(**_args)
+                else:
+                    assert isinstance(with_tqdm, std_tqdm)
+                    pbar = with_tqdm
+            else:  # `process`, have to rely on `tqdm.concurrent` which shows progress on batch level, see `conc_map`
+                tqdm_args['with_tqdm'] = with_tqdm
+        else:
+            tqdm_args = dict(with_tqdm=False)
 
         batched_map = BatchedMap(fn, is_batched_fn, pbar)
-        args = dict(with_tqdm=False, mode=mode, n_worker=n_worker)
-        map_out = conc_map(fn=batched_map, it=[(lst, s, e) for s, e in zip(strts, ends)], **args)
+        map_out = conc_map(fn=batched_map, it=[(lst, s, e) for s, e in zip(strts, ends)], **tqdm_args)
         for lst_ in map_out:
             lst_out.extend(lst_)
         return lst_out
