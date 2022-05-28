@@ -90,7 +90,7 @@ class BatchedMap:
 
 def batched_conc_map(
         fn: Union[MapFn, BatchedMapFn],
-        lst: Union[List[T], np.array], n_worker: int = os.cpu_count(),
+        it: Union[Iterable[T], List[T], np.array], n: int = None, n_worker: int = os.cpu_count(),
         batch_size: int = None,
         with_tqdm: Union[bool, dict, tqdm] = False,
         is_batched_fn: bool = False,
@@ -101,7 +101,8 @@ def batched_conc_map(
     Operates on batch/subset of `lst` elements given inclusive begin & exclusive end indices
 
     :param fn: A map function that operates on a single element
-    :param lst: A list of elements to map
+    :param it: A list of elements to map
+    :param n: #elements to map if `it` is not Sized
     :param n_worker: Number of concurrent workers
     :param batch_size: Number of elements for each sub-process worker
         Inferred based on number of workers if not given
@@ -114,7 +115,7 @@ def batched_conc_map(
     .. note:: Concurrently is not invoked if too little list elements given number of workers
         Force concurrency with `batch_size`
     """
-    n: int = len(lst)
+    n = n or len(it)
     if (n_worker > 1 and n > n_worker * 4) or batch_size:  # factor of 4 is arbitrary, otherwise not worse the overhead
         preprocess_batch = batch_size or round(n / n_worker / 2)
         strts: List[int] = list(range(0, n, preprocess_batch))
@@ -142,12 +143,12 @@ def batched_conc_map(
             tqdm_args = dict(with_tqdm=False)
 
         batched_map = BatchedMap(fn, is_batched_fn, pbar)
-        map_out = conc_map(fn=batched_map, it=[(lst, s, e) for s, e in zip(strts, ends)], **tqdm_args)
+        map_out = conc_map(fn=batched_map, it=[(it, s, e) for s, e in zip(strts, ends)], **tqdm_args)
         for lst_ in map_out:
             lst_out.extend(lst_)
         return lst_out
     else:
-        gen = tqdm(lst) if with_tqdm else lst
+        gen = tqdm(it) if with_tqdm else it
         if is_batched_fn:
             args = gen, 0, n
             return fn(*args)

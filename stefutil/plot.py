@@ -51,13 +51,24 @@ def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
         patch.set_x(patch.get_x() + diff * 0.5) if is_vert else patch.set_y(patch.get_y() + diff * 0.5)
 
 
-def vals2colors(vals: Iterable[float], color_palette: str = 'Spectral_r') -> Iterable:
+def vals2colors(
+        vals: Iterable[float], color_palette: str = 'Spectral_r', gap: float = None,
+) -> List:
     """
     Map an iterable of values to corresponding colors given a color map
+
+    :param vals: Values to map color
+    :param color_palette: seaborn color map
+    :param gap: Ratio of difference between min and max values
+        If given, reduce visual spread/difference of colors
+        Intended for a less drastic color at the extremes
     """
     vals = np.asarray(vals)
     cmap = sns.color_palette(color_palette, as_cmap=True)
     mi, ma = np.min(vals), np.max(vals)
+    if gap is not None:
+        diff = ma - mi
+        mi, ma = mi - diff * gap, ma + diff * gap
     norm = (vals - mi) / (ma - mi)
     return cmap(norm)
 
