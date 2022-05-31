@@ -431,7 +431,7 @@ class MyProgressCallback(TrainerCallback):
             if not self.step_per_epoch:
                 self.step_per_epoch = MyProgressCallback._get_steps_per_epoch(state)
             ep = MyProgressCallback._get_curr_epoch(state)
-            self.training_bar = tqdm(total=self.step_per_epoch, desc=f'Train Epoch {ep}')
+            self.training_bar = tqdm(total=self.step_per_epoch, desc=f'Train Epoch {ep}', unit='ba')
         self.current_step = 0
 
     def on_train_begin(self, args, state, control, **kwargs):
@@ -452,7 +452,9 @@ class MyProgressCallback(TrainerCallback):
                 if self.prediction_bar is None:
                     ep = MyProgressCallback._get_curr_epoch(state)
                     desc = f'Eval Epoch {ep}'
-                    self.prediction_bar = tqdm(desc=desc, total=len(eval_dataloader), leave=self.training_bar is None)
+                    self.prediction_bar = tqdm(
+                        desc=desc, total=len(eval_dataloader), leave=self.training_bar is None, unit='ba'
+                    )
                 self.prediction_bar.update(1)
 
     def on_evaluate(self, args, state, control, **kwargs):
