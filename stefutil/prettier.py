@@ -7,6 +7,7 @@ import re
 import sys
 import json
 import math
+import pprint
 import logging
 import datetime
 from typing import Tuple, List, Dict, Any, Union
@@ -19,12 +20,14 @@ from transformers import TrainerCallback
 import sty
 import colorama
 from tqdm.auto import tqdm
+from icecream import IceCreamDebugger
 
 from stefutil.primitive import is_float
 
 
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'now',
+    'MyIceCreamDebugger', 'mic',
     'log', 'log_s', 'logi', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'MlPrettier', 'MyProgressCallback'
@@ -99,6 +102,27 @@ def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
     d = datetime.datetime.now()
     fmt = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S'
     return d.strftime(fmt) if as_str else d
+
+
+class MyIceCreamDebugger(IceCreamDebugger):
+    def __init__(self, output_width: int = 120, **kwargs):
+        self._output_width = output_width
+        kwargs.update(lineWrapWidth=output_width, argToStringFunction=lambda x: pprint.pformat(x, width=output_width))
+        super().__init__(**kwargs)
+
+    @property
+    def output_width(self):
+        return self._output_width
+
+    @output_width.setter
+    def output_width(self, value):
+        if value != self._output_width:
+            self._output_width = value
+            self.lineWrapgitWidth = value
+            self.argToStringFunction = lambda x: pprint.pformat(x, width=value)
+
+
+mic = MyIceCreamDebugger()
 
 
 def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad: int = None):
