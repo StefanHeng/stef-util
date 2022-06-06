@@ -107,8 +107,9 @@ def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
 class MyIceCreamDebugger(IceCreamDebugger):
     def __init__(self, output_width: int = 120, **kwargs):
         self._output_width = output_width
-        kwargs.update(lineWrapWidth=output_width, argToStringFunction=lambda x: pprint.pformat(x, width=output_width))
+        kwargs.update(argToStringFunction=lambda x: pprint.pformat(x, width=output_width))
         super().__init__(**kwargs)
+        self.lineWrapWidth = output_width
 
     @property
     def output_width(self):
