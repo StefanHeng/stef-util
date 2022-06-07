@@ -448,8 +448,11 @@ class MyProgressCallback(TrainerCallback):
         return state.max_steps // state.num_train_epochs
 
     @staticmethod
-    def _get_curr_epoch(state) -> str:
-        return MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', int(state.epoch+1))
+    def _get_curr_epoch(state, is_eval: bool = False) -> str:
+        n_ep = int(state.epoch)
+        if not is_eval:  # heuristic judging by the eval #epoch shown
+            n_ep += 1
+        return MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', n_ep)
 
     def on_epoch_begin(self, args, state, control, **kwargs):
         if state.is_local_process_zero:
@@ -475,7 +478,7 @@ class MyProgressCallback(TrainerCallback):
         if not self.train_only:
             if state.is_local_process_zero and isinstance(eval_dataloader.dataset, Sized):
                 if self.prediction_bar is None:
-                    ep = MyProgressCallback._get_curr_epoch(state)
+                    ep = MyProgressCallback._get_curr_epoch(state, is_eval=True)
                     desc = f'Eval Epoch {ep}'
                     self.prediction_bar = tqdm(
                         desc=desc, total=len(eval_dataloader), leave=self.training_bar is None, unit='ba'
