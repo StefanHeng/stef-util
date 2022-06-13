@@ -12,7 +12,7 @@ import pandas as pd
 from pandas.api.types import CategoricalDtype
 import torch
 
-from stefutil.prettier import logi
+from stefutil.prettier import logi, log_s
 
 
 __all__ = [
@@ -36,8 +36,8 @@ def get(dic: Dict, ks: str):
     acc = dic
     for lvl, k in enumerate(ks):
         if k not in acc:
-            _past_keys = '=>'.join(_past_keys)
-            raise ValueError(f'{logi(k)} not found at level {logi(lvl+1)} with past keys {logi(_past_keys)}')
+            _past_keys = log_s('=>', c='m').join([logi(k) for k in _past_keys])
+            raise ValueError(f'{logi(k)} not found at level {logi(lvl+1)} with past keys {_past_keys}')
         acc = acc[k]
         _past_keys.append(k)
     return acc
