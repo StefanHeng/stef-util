@@ -12,6 +12,8 @@ import pandas as pd
 from pandas.api.types import CategoricalDtype
 import torch
 
+from stefutil.prettier import logi
+
 
 __all__ = [
     'get', 'set_', 'it_keys',
@@ -30,7 +32,15 @@ def get(dic: Dict, ks: str):
     :param ks: Potentially `.`-separated keys
     """
     ks = ks.split('.')
-    return reduce(lambda acc, elm: acc[elm], ks, dic)
+    _past_keys = []
+    acc = dic
+    for lvl, k in enumerate(ks):
+        if k not in acc:
+            _past_keys = '=>'.join(_past_keys)
+            raise ValueError(f'{logi(k)} not found at level {logi(lvl+1)} with past keys {logi(_past_keys)}')
+        acc = acc[k]
+        _past_keys.append(k)
+    return acc
 
 
 def set_(dic, ks, val):
@@ -144,3 +154,14 @@ def pt_sample(d: Dict[K, Union[float, Any]]) -> K:
     d_keys = {k: v for k, v in d.items() if v}  # filter out `None`s
     keys, weights = zip(*d_keys.items())
     return keys[torch.multinomial(torch.tensor(weights), 1, replacement=True).item()]
+
+
+if __name__ == '__main__':
+    from icecream import ic
+
+    def check_get():
+        d = {'a': {'b': {'c': 1, 'd': 2}, 'e': 3}, 'f': 4}
+        ic(d)
+        ic(get(d, 'a.b.c'))
+        ic(get(d, 'a.b.e'))
+    check_get()
