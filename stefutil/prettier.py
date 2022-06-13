@@ -173,7 +173,12 @@ def logi(s):
     """
     Syntactic sugar for logging `info` as string
     """
-    return log_s(s, c='i')
+    if isinstance(s, dict):
+        return log_dict(s)
+    elif isinstance(s, list):
+        return log_list(s)
+    else:
+        return log_s(s, c='i')
 
 
 def log_list(lst: List, with_color=True):
@@ -203,9 +208,12 @@ def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kw
             else:
                 return logi(v) if with_color else v
     d = d or kwargs or dict()
+    if with_color:
+        sep = log_s(sep, c='m')
     pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
-    pref = log_s('{', c='m') if with_color else '{'
-    post = log_s('}', c='m') if with_color else '}'
+    pref, post = '{', '}'
+    if with_color:
+        pref, post = log_s(pref, c='m'), log_s(post, c='m')
     return pref + ', '.join(pairs) + post
 
 
@@ -519,4 +527,9 @@ if __name__ == '__main__':
     def check_log_lst():
         lst = ['sda', 'asd']
         print(log_list(lst))
-    check_log_lst()
+    # check_log_lst()
+
+    def check_logi():
+        d = dict(a=1, b=2)
+        print(logi(d))
+    check_logi()
