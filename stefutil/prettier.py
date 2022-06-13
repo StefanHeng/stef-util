@@ -28,7 +28,7 @@ from stefutil.primitive import is_float
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'now',
     'MyIceCreamDebugger', 'mic',
-    'log', 'log_s', 'logi', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
+    'log', 'log_s', 'logi', 'log_list', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'MlPrettier', 'MyProgressCallback'
 ]
@@ -176,6 +176,14 @@ def logi(s):
     return log_s(s, c='i')
 
 
+def log_list(lst: List, with_color=True):
+    pref, post = '[', ']'
+    if with_color:
+        pref, post = log_s(pref, c='m'), log_s(post, c='m')
+    lst = [logi(e) for e in lst]
+    return f'{pref}{", ".join(lst)}{post}'
+
+
 def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kwargs) -> str:
     """
     Syntactic sugar for logging dict with coloring for console output
@@ -183,6 +191,8 @@ def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kw
     def _log_val(v):
         if isinstance(v, dict):
             return log_dict(v, with_color=with_color)
+        elif isinstance(v, list):
+            return log_list(v, with_color=with_color)
         else:
             if is_float(v):  # Pad only normal, expected floats, intended for metric logging
                 if is_float(v, no_int=True, no_sci=True):
@@ -352,7 +362,9 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
     logger.setLevel(logging.DEBUG)
     if typ == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
-    else:
+    else:  # `file-write`
+        if not file_path:
+            raise ValueError(f'{logi(file_path)} must be specified for {logi("file-write")} logging')
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         handler = logging.FileHandler(file_path)
     handler.setLevel(logging.DEBUG)
@@ -501,5 +513,10 @@ class MyProgressCallback(TrainerCallback):
 
 
 if __name__ == '__main__':
-    lg = get_logger('test')
-    lg.info('test')
+    # lg = get_logger('test')
+    # lg.info('test')
+
+    def check_log_lst():
+        lst = ['sda', 'asd']
+        print(log_list(lst))
+    check_log_lst()

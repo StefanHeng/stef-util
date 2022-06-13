@@ -38,6 +38,9 @@ class StefUtil:
     Effectively curried functions with my enforced project & dataset structure
         Pass in file paths
     """
+    plot_dir = 'plot'
+    eval_dir = 'eval'
+
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
             dataset_dir: str = None, model_dir: str = None
@@ -58,8 +61,8 @@ class StefUtil:
         self.proj_path = os_join(self.base_path, self.proj_dir)
         self.dset_path = os_join(self.base_path, self.dset_dir)
         self.model_path = os_join(self.base_path, self.model_dir)
-        self.plot_path = os_join(self.base_path, self.proj_dir, 'plot')
-        self.eval_path = os_join(self.base_path, self.proj_dir, 'eval')
+        self.plot_path = os_join(self.base_path, self.proj_dir, StefUtil.plot_dir)
+        self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
         os.makedirs(self.plot_path, exist_ok=True)
         os.makedirs(self.eval_path, exist_ok=True)
 
