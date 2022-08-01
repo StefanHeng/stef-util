@@ -3,9 +3,10 @@ primitive manipulation
 """
 
 import re
-from typing import List, Any
+import math
+from typing import List, Any, Union
 
-__all__ = ['nan', 'is_float', 'clean_whitespace', 'get_substr_indices']
+__all__ = ['nan', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices']
 
 
 nan = float('nan')
@@ -24,6 +25,13 @@ def is_float(x: Any, no_int=False, no_sci=False) -> bool:
         return out
     except (ValueError, TypeError):
         return False
+
+
+def float_is_int(f: float, eps: float = None) -> Union[int, bool]:
+    if eps:
+        return f.is_integer() or math.isclose(f, round(f), abs_tol=eps)
+    else:
+        return f.is_integer()
 
 
 def clean_whitespace(s: str):
