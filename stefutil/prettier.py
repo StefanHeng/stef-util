@@ -26,10 +26,12 @@ from stefutil.primitive import is_float
 
 
 __all__ = [
-    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'now',
+    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit',
     'MyIceCreamDebugger', 'mic',
     'log', 'log_s', 'logi', 'log_list', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
+    'CheckArg', 'ca',
+    'now',
     'MlPrettier', 'MyProgressCallback'
 ]
 
@@ -91,17 +93,6 @@ def nth_sig_digit(flt: float, n: int = 1) -> float:
     :return: first n-th significant digit of `sig_d`
     """
     return float('{:.{p}g}'.format(flt, p=n))
-
-
-def now(as_str=True, for_path=False) -> Union[datetime.datetime, str]:
-    """
-    # Considering file output path
-    :param as_str: If true, returns string; otherwise, returns datetime object
-    :param for_path: If true, the string returned is formatted as intended for file system path
-    """
-    d = datetime.datetime.now()
-    fmt = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S'
-    return d.strftime(fmt) if as_str else d
 
 
 class MyIceCreamDebugger(IceCreamDebugger):
@@ -378,6 +369,7 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(MyFormatter(with_color=typ == 'stdout'))
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
 
@@ -520,16 +512,88 @@ class MyProgressCallback(TrainerCallback):
         pass
 
 
+class CheckArg:
+    """
+    An easy, readable interface for checking string arguments as effectively enums
+
+    Intended for high-level arguments instead of actual data processing as not as efficient
+
+    Raise errors when common arguments don't match the expected values
+    """
+
+    @staticmethod
+    def check_mismatch(display_name: str, val: str, accepted_values: List[str]):
+        if val not in accepted_values:
+            raise ValueError(f'Unexpected {logi(display_name)}: '
+                             f'expect one of {logi(accepted_values)}, got {logi(val)}')
+
+    def __init__(self):
+        self.d_name2func = dict()
+
+    def __call__(self, **kwargs):
+        for k in kwargs:
+            self.d_name2func[k](kwargs[k])
+
+    def cache_mismatch(self, display_name: str, attr_name: str, accepted_values: List[str]):
+        self.d_name2func[attr_name] = lambda x: CheckArg.check_mismatch(display_name, x, accepted_values)
+
+
+ca = CheckArg()
+ca.cache_mismatch(  # See `stefutil::plot.py`
+    'Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal']
+)
+
+
+def now(as_str=True, for_path=False, fmt: str = 'full') -> Union[datetime.datetime, str]:
+    """
+    # Considering file output path
+    :param as_str: If true, returns string; otherwise, returns datetime object
+    :param for_path: If true, the string returned is formatted as intended for file system path
+        relevant only when as_str is True
+    :param fmt: One of [`full`, `date`, `short-date`]
+        relevant only when as_str is True
+    """
+    d = datetime.datetime.now()
+    if as_str:
+        ca.check_mismatch('Date Format', fmt, ['full', 'date', 'short-date'])
+        if fmt == 'full':
+            fmt_tm = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S.%f'
+        else:
+            fmt_tm = '%Y-%m-%d'
+        ret = d.strftime(fmt_tm)
+        if fmt == 'short-date':  # year in 2-digits
+            ret = ret[2:]
+        return ret
+    else:
+        return d
+
+
 if __name__ == '__main__':
     # lg = get_logger('test')
     # lg.info('test')
 
-    def check_log_lst():
-        lst = ['sda', 'asd']
-        print(log_list(lst))
-    # check_log_lst()
+    # def check_log_lst():
+    #     lst = ['sda', 'asd']
+    #     print(log_list(lst))
+    # # check_log_lst()
+    #
+    # def check_logi():
+    #     d = dict(a=1, b=2)
+    #     print(logi(d))
+    # check_logi()
 
-    def check_logi():
-        d = dict(a=1, b=2)
-        print(logi(d))
-    check_logi()
+    def check_logger():
+        logger = get_logger('blah')
+        logger.info('should appear once')
+    # check_logger()
+
+    def check_now():
+        mic(now(fmt='full'))
+        mic(now(fmt='date'))
+        mic(now(fmt='short-date'))
+    check_now()
+
+    def check_ca():
+        ori = 'v'
+        ca(bar_orient=ori)
+    # check_ca()

@@ -11,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from stefutil.check_args import ca
+from stefutil.prettier import ca
 from stefutil.container import df_col2cat_col
 
 

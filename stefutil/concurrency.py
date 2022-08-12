@@ -13,7 +13,7 @@ from tqdm.std import tqdm as std_tqdm  # root for type check
 from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
 
-from stefutil.check_args import ca
+from stefutil.prettier import ca
 
 
 __all__ = ['conc_map', 'batched_conc_map']
