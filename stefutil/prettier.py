@@ -10,7 +10,7 @@ import math
 import pprint
 import logging
 import datetime
-from typing import Tuple, List, Dict, Any, Union
+from typing import Tuple, List, Dict, Iterable, Any, Union
 from pygments import highlight, lexers, formatters
 from collections import OrderedDict
 from collections.abc import Sized
@@ -168,16 +168,25 @@ def logi(s):
         return log_dict(s)
     elif isinstance(s, list):
         return log_list(s)
+    elif isinstance(s, tuple):
+        return log_tuple(s)
     else:
         return log_s(s, c='i')
 
 
-def log_list(lst: List, with_color=True):
-    pref, post = '[', ']'
+def _log_iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
     if with_color:
         pref, post = log_s(pref, c='m'), log_s(post, c='m')
-    lst = [logi(e) for e in lst]
+    lst = [logi(e) for e in it]
     return f'{pref}{", ".join(lst)}{post}'
+
+
+def log_list(lst: List, with_color=True):
+    return _log_iter(lst, with_color=with_color, pref='[', post=']')
+
+
+def log_tuple(tpl: Tuple, with_color=True):
+    return _log_iter(tpl, with_color=with_color, pref='(', post=')')
 
 
 def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kwargs) -> str:
@@ -572,14 +581,21 @@ if __name__ == '__main__':
     # lg = get_logger('test')
     # lg.info('test')
 
-    # def check_log_lst():
-    #     lst = ['sda', 'asd']
-    #     print(log_list(lst))
-    # # check_log_lst()
-    #
-    # def check_logi():
-    #     d = dict(a=1, b=2)
-    #     print(logi(d))
+    def check_log_lst():
+        lst = ['sda', 'asd']
+        print(log_list(lst))
+        print(logi(lst))
+    check_log_lst()
+
+    def check_log_tup():
+        tup = ('sda', 'asd')
+        print(log_tuple(tup))
+        print(logi(tup))
+    check_log_tup()
+
+    def check_logi():
+        d = dict(a=1, b=2)
+        print(logi(d))
     # check_logi()
 
     def check_logger():
@@ -591,7 +607,7 @@ if __name__ == '__main__':
         mic(now(fmt='full'))
         mic(now(fmt='date'))
         mic(now(fmt='short-date'))
-    check_now()
+    # check_now()
 
     def check_ca():
         ori = 'v'
