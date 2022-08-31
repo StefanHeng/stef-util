@@ -28,7 +28,7 @@ from stefutil.primitive import is_float
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit',
     'MyIceCreamDebugger', 'mic',
-    'log', 'log_s', 'logi', 'log_list', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p',
+    'log', 'log_s', 'logi', 'log_list', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p', 'lognc',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'CheckArg', 'ca',
     'now',
@@ -40,6 +40,7 @@ pd.set_option('expand_frame_repr', False)
 pd.set_option('display.precision', 2)
 pd.set_option('max_colwidth', 40)
 pd.set_option('display.max_columns', None)
+pd.set_option('display.min_rows', 16)
 
 
 def fmt_num(num: Union[float, int], suffix: str = '') -> str:
@@ -156,22 +157,32 @@ def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad
         print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{log.reset}')
 
 
-def log_s(s, c, bold: bool = False):
+def log_s(s, c, bold: bool = False, with_color: bool = True):
+    c = c if with_color else ''  # keeping the same signature with logging specific types for `lognc`
     return log(s, c=c, as_str=True, bold=bold)
 
 
-def logi(s):
+def logi(s, **kwargs):
     """
     Syntactic sugar for logging `info` as string
     """
     if isinstance(s, dict):
-        return log_dict(s)
+        return log_dict(s, **kwargs)
     elif isinstance(s, list):
-        return log_list(s)
+        return log_list(s, **kwargs)
     elif isinstance(s, tuple):
-        return log_tuple(s)
+        return log_tuple(s, **kwargs)
     else:
-        return log_s(s, c='i')
+        kwargs_ = dict(c='i')
+        kwargs_.update(kwargs)
+        return log_s(s, **kwargs)
+
+
+def lognc(s, **kwargs):
+    """
+    Syntactic sugar for `logi` w/o color
+    """
+    return logi(s, with_color=False, **kwargs)
 
 
 def _log_iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
