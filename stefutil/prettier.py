@@ -175,7 +175,7 @@ def logi(s, **kwargs):
     else:
         kwargs_ = dict(c='i')
         kwargs_.update(kwargs)
-        return log_s(s, **kwargs)
+        return log_s(s, **kwargs_)
 
 
 def lognc(s, **kwargs):
@@ -188,7 +188,7 @@ def lognc(s, **kwargs):
 def _log_iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
     if with_color:
         pref, post = log_s(pref, c='m'), log_s(post, c='m')
-    lst = [logi(e) for e in it]
+    lst = [logi(e, with_color=with_color) for e in it]
     return f'{pref}{", ".join(lst)}{post}'
 
 
@@ -596,18 +596,25 @@ if __name__ == '__main__':
         lst = ['sda', 'asd']
         print(log_list(lst))
         print(logi(lst))
-    check_log_lst()
+    # check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
         print(log_tuple(tup))
         print(logi(tup))
-    check_log_tup()
+    # check_log_tup()
 
     def check_logi():
         d = dict(a=1, b=2)
         print(logi(d))
     # check_logi()
+
+    def check_nested_log_dict():
+        d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
+        mic(d)
+        print(logi(d))
+        print(lognc(d))
+    check_nested_log_dict()
 
     def check_logger():
         logger = get_logger('blah')
