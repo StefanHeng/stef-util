@@ -157,7 +157,7 @@ def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad
         print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{log.reset}')
 
 
-def log_s(s, c, bold: bool = False, with_color: bool = True):
+def log_s(s, c: str = None, bold: bool = False, with_color: bool = True):
     c = c if with_color else ''  # keeping the same signature with logging specific types for `lognc`
     return log(s, c=c, as_str=True, bold=bold)
 
