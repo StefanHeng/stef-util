@@ -147,14 +147,18 @@ def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad
 
             m=colorama.Fore.MAGENTA
         )
+    need_reset = False
     if c in log.d:
         c = log.d[c]
+        need_reset = True
     if bold:
         c += colorama.Style.BRIGHT
+        need_reset = True
+    reset = log.reset if need_reset else ''
     if as_str:
-        return f'{c}{s:>{pad}}{log.reset}' if pad is not None else f'{c}{s}{log.reset}'
+        return f'{c}{s:>{pad}}{reset}' if pad is not None else f'{c}{s}{reset}'
     else:
-        print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{log.reset}')
+        print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{reset}')
 
 
 def log_s(s, c: str = None, bold: bool = False, with_color: bool = True):
@@ -596,7 +600,9 @@ if __name__ == '__main__':
         lst = ['sda', 'asd']
         print(log_list(lst))
         print(logi(lst))
-    # check_log_lst()
+        with open('test-logi.txt', 'w') as f:
+            f.write(lognc(lst))
+    check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
@@ -614,7 +620,8 @@ if __name__ == '__main__':
         mic(d)
         print(logi(d))
         print(lognc(d))
-    check_nested_log_dict()
+        mic(logi(d), lognc(d))
+    # check_nested_log_dict()
 
     def check_logger():
         logger = get_logger('blah')

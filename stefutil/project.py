@@ -5,6 +5,7 @@ Project & project file structure related
 import os
 import json
 from os.path import join as os_join
+from typing import Dict
 
 import matplotlib.pyplot as plt
 
@@ -66,17 +67,23 @@ class StefUtil:
         os.makedirs(self.plot_path, exist_ok=True)
         os.makedirs(self.eval_path, exist_ok=True)
 
-    def save_fig(self, title, save=True, prefix_time: bool = True):
+    def save_fig(
+            self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
+    ):
         """
         :param title: Rendered figure title
         :param save: If true, figure is saved to project plot directory
             No effect otherwise
         :param prefix_time: If true, timestamp is prefixed before filename
             Otherwise, timestamp is appended to the end
+        :param save_path: disk path to save figure
+        :param time_args: `now` arguments
         """
         if save:
+            args = dict(fmt='short-date') | (time_args or dict())
+            t = now(**args)
             if prefix_time:
-                fnm = f'{now(for_path=True)}_{title}.png'
+                fnm = f'{t}_{title}.png'
             else:
-                fnm = f'{title}, {now(for_path=True)}.png'
-            plt.savefig(os_join(self.plot_path, fnm), dpi=300)
+                fnm = f'{title}, {t}.png'
+            plt.savefig(os_join((save_path or self.plot_path), fnm), dpi=300)
