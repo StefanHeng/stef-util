@@ -544,22 +544,35 @@ class CheckArg:
 
     Raise errors when common arguments don't match the expected values
     """
+    logger = get_logger('Arg Checker')
 
-    @staticmethod
-    def check_mismatch(display_name: str, val: str, accepted_values: List[str]):
+    def check_mismatch(self, display_name: str, val: str, accepted_values: List[str]):
+        if self.verbose:
+            d_log = dict(val=val, accepted_values=accepted_values)
+            CheckArg.logger.info(f'Checking {logi(display_name)} w/ {logi(d_log)}... ')
         if val not in accepted_values:
             raise ValueError(f'Unexpected {logi(display_name)}: '
                              f'expect one of {logi(accepted_values)}, got {logi(val)}')
 
-    def __init__(self):
+    def __init__(self, ignore_none: bool = True, verbose: bool = False):
+        """
+        :param ignore_none: If true, arguments passed in as `None` will not raise error
+        :param verbose: If true, logging are print to console
+        """
         self.d_name2func = dict()
+        self.ignore_none = ignore_none
+        self.verbose = verbose
 
     def __call__(self, **kwargs):
-        for k in kwargs:
-            self.d_name2func[k](kwargs[k])
+        for k, v in kwargs.items():
+            if self.ignore_none and v is None:
+                if self.verbose:
+                    CheckArg.logger.warning(f'Argument {logi(k)} is {logi("None")} and ignored')
+                continue
+            self.d_name2func[k](v)
 
     def cache_mismatch(self, display_name: str, attr_name: str, accepted_values: List[str]):
-        self.d_name2func[attr_name] = lambda x: CheckArg.check_mismatch(display_name, x, accepted_values)
+        self.d_name2func[attr_name] = lambda x: self.check_mismatch(display_name, x, accepted_values)
 
 
 ca = CheckArg()
@@ -602,7 +615,7 @@ if __name__ == '__main__':
         print(logi(lst))
         with open('test-logi.txt', 'w') as f:
             f.write(lognc(lst))
-    check_log_lst()
+    # check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
@@ -638,3 +651,10 @@ if __name__ == '__main__':
         ori = 'v'
         ca(bar_orient=ori)
     # check_ca()
+
+    def check_ca_warn():
+        ca_ = CheckArg(verbose=True)
+        ca_.cache_mismatch(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
+        ca_(test='a')
+        ca_(test=None)
+    check_ca_warn()
