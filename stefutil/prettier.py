@@ -28,7 +28,7 @@ from stefutil.primitive import is_float
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit',
     'MyIceCreamDebugger', 'mic',
-    'log', 'log_s', 'logi', 'log_list', 'log_dict', 'log_dict_nc', 'log_dict_id', 'log_dict_pg', 'log_dict_p', 'lognc',
+    'PrettyLogger', 'pl',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'CheckArg', 'ca',
     'now',
@@ -118,148 +118,151 @@ class MyIceCreamDebugger(IceCreamDebugger):
 mic = MyIceCreamDebugger()
 
 
-def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad: int = None):
+class PrettyLogger:
     """
-    Prints `s` to console with color `c`
+    My logging w/ color & formatting, and a lot of syntactic sugar
     """
-    if not hasattr(log, 'reset'):
-        log.reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
-    if not hasattr(log, 'd'):
-        log.d = dict(
-            log='',
-            warn=colorama.Fore.YELLOW,
-            error=colorama.Fore.RED,
-            err=colorama.Fore.RED,
-            success=colorama.Fore.GREEN,
-            suc=colorama.Fore.GREEN,
-            info=colorama.Fore.BLUE,
-            i=colorama.Fore.BLUE,
-            w=colorama.Fore.RED,
+    reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
+    key2c = dict(
+        log='',
+        warn=colorama.Fore.YELLOW,
+        error=colorama.Fore.RED,
+        err=colorama.Fore.RED,
+        success=colorama.Fore.GREEN,
+        suc=colorama.Fore.GREEN,
+        info=colorama.Fore.BLUE,
+        i=colorama.Fore.BLUE,
+        w=colorama.Fore.RED,
 
-            y=colorama.Fore.YELLOW,
-            yellow=colorama.Fore.YELLOW,
-            red=colorama.Fore.RED,
-            r=colorama.Fore.RED,
-            green=colorama.Fore.GREEN,
-            g=colorama.Fore.GREEN,
-            blue=colorama.Fore.BLUE,
-            b=colorama.Fore.BLUE,
+        y=colorama.Fore.YELLOW,
+        yellow=colorama.Fore.YELLOW,
+        red=colorama.Fore.RED,
+        r=colorama.Fore.RED,
+        green=colorama.Fore.GREEN,
+        g=colorama.Fore.GREEN,
+        blue=colorama.Fore.BLUE,
+        b=colorama.Fore.BLUE,
 
-            m=colorama.Fore.MAGENTA
-        )
-    need_reset = False
-    if c in log.d:
-        c = log.d[c]
-        need_reset = True
-    if bold:
-        c += colorama.Style.BRIGHT
-        need_reset = True
-    reset = log.reset if need_reset else ''
-    if as_str:
-        return f'{c}{s:>{pad}}{reset}' if pad is not None else f'{c}{s}{reset}'
-    else:
-        print(f'{c}{log(now(), c=c_time, as_str=True)}| {s}{reset}')
+        m=colorama.Fore.MAGENTA
+    )
 
-
-def log_s(s, c: str = None, bold: bool = False, with_color: bool = True):
-    c = c if with_color else ''  # keeping the same signature with logging specific types for `lognc`
-    return log(s, c=c, as_str=True, bold=bold)
-
-
-def logi(s, **kwargs):
-    """
-    Syntactic sugar for logging `info` as string
-    """
-    if isinstance(s, dict):
-        return log_dict(s, **kwargs)
-    elif isinstance(s, list):
-        return log_list(s, **kwargs)
-    elif isinstance(s, tuple):
-        return log_tuple(s, **kwargs)
-    else:
-        kwargs_ = dict(c='i')
-        kwargs_.update(kwargs)
-        return log_s(s, **kwargs_)
-
-
-def lognc(s, **kwargs):
-    """
-    Syntactic sugar for `logi` w/o color
-    """
-    return logi(s, with_color=False, **kwargs)
-
-
-def _log_iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
-    if with_color:
-        pref, post = log_s(pref, c='m'), log_s(post, c='m')
-    lst = [logi(e, with_color=with_color) for e in it]
-    return f'{pref}{", ".join(lst)}{post}'
-
-
-def log_list(lst: List, with_color=True):
-    return _log_iter(lst, with_color=with_color, pref='[', post=']')
-
-
-def log_tuple(tpl: Tuple, with_color=True):
-    return _log_iter(tpl, with_color=with_color, pref='(', post=')')
-
-
-def log_dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', **kwargs) -> str:
-    """
-    Syntactic sugar for logging dict with coloring for console output
-    """
-    def _log_val(v):
-        if isinstance(v, dict):
-            return log_dict(v, with_color=with_color)
-        elif isinstance(v, list):
-            return log_list(v, with_color=with_color)
+    @staticmethod
+    def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad: int = None):
+        """
+        Prints `s` to console with color `c`
+        """
+        need_reset = False
+        if c in PrettyLogger.key2c:
+            c = PrettyLogger.key2c[c]
+            need_reset = True
+        if bold:
+            c += colorama.Style.BRIGHT
+            need_reset = True
+        reset = PrettyLogger.reset if need_reset else ''
+        if as_str:
+            return f'{c}{s:>{pad}}{reset}' if pad is not None else f'{c}{s}{reset}'
         else:
-            if is_float(v):  # Pad only normal, expected floats, intended for metric logging
-                if is_float(v, no_int=True, no_sci=True):
-                    v = float(v)
-                    return log(v, c='i', as_str=True, pad=pad_float) if with_color else f'{v:>{pad_float}}'
-                else:
-                    return logi(v) if with_color else v
+            print(f'{c}{PrettyLogger.log(now(), c=c_time, as_str=True)}| {s}{reset}')
+
+    @staticmethod
+    def s(s, c: str = None, bold: bool = False, with_color: bool = True) -> str:
+        """
+        syntactic sugar for return string instead of print
+        """
+        c = c if with_color else ''  # keeping the same signature with logging specific types for `lognc`
+        return PrettyLogger.log(s, c=c, as_str=True, bold=bold)
+
+    @staticmethod
+    def i(s, **kwargs):
+        """
+        Syntactic sugar for logging `info` as string
+        """
+        if isinstance(s, dict):
+            return PrettyLogger._dict(s, **kwargs)
+        elif isinstance(s, list):
+            return PrettyLogger._list(s, **kwargs)
+        elif isinstance(s, tuple):
+            return PrettyLogger._tuple(s, **kwargs)
+        else:
+            kwargs_ = dict(c='i')
+            kwargs_.update(kwargs)
+            return PrettyLogger.s(s, **kwargs_)
+
+    @staticmethod
+    def pa(s):
+        assert isinstance(s, dict)
+        PrettyLogger.i(s, for_path=True, with_color=False)
+
+    @staticmethod
+    def nc(s, **kwargs):
+        """
+        Syntactic sugar for `i` w/o color
+        """
+        return PrettyLogger.i(s, with_color=False, **kwargs)
+
+    @staticmethod
+    def id(d: Dict) -> str:
+        """
+        Indented
+        """
+        return json.dumps(d, indent=4)
+
+    @staticmethod
+    def fmt(s) -> str:
+        """
+        colored by `pygments` & with indent
+        """
+        return highlight(PrettyLogger.id(s), lexers.JsonLexer(), formatters.TerminalFormatter())
+
+    @staticmethod
+    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
+        if with_color:
+            pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
+        lst = [PrettyLogger.i(e, with_color=with_color) for e in it]
+        return f'{pref}{", ".join(lst)}{post}'
+
+    @staticmethod
+    def _list(lst: List, with_color=True):
+        return PrettyLogger._iter(lst, with_color=with_color, pref='[', post=']')
+
+    @staticmethod
+    def _tuple(tpl: Tuple, with_color=True):
+        return PrettyLogger._iter(tpl, with_color=with_color, pref='(', post=')')
+
+    @staticmethod
+    def _dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: bool = False, **kwargs) -> str:
+        """
+        Syntactic sugar for logging dict with coloring for console output
+        """
+        def _log_val(v):
+            if isinstance(v, (dict, list, tuple)):
+                return PrettyLogger.i(v, with_color=with_color)
             else:
-                return logi(v) if with_color else v
-    d = d or kwargs or dict()
-    if with_color:
-        sep = log_s(sep, c='m')
-    pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
-    pref, post = '{', '}'
-    if with_color:
-        pref, post = log_s(pref, c='m'), log_s(post, c='m')
-    return pref + ', '.join(pairs) + post
+                if is_float(v):  # Pad only normal, expected floats, intended for metric logging
+                    if is_float(v, no_int=True, no_sci=True):
+                        v = float(v)
+                        if with_color:
+                            return PrettyLogger.log(v, c='i', as_str=True, pad=pad_float)
+                        else:
+                            return f'{v:>{pad_float}}'
+                    else:
+                        return PrettyLogger.i(v) if with_color else v
+                else:
+                    return PrettyLogger.i(v) if with_color else v
+        d = d or kwargs or dict()
+        if for_path:
+            assert not with_color  # sanity check
+            sep = '='
+        if with_color:
+            sep = PrettyLogger.s(sep, c='m')
+        pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
+        pref, post = '{', '}'
+        if with_color:
+            pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
+        return pref + ', '.join(pairs) + post
 
 
-def log_dict_nc(d: Dict = None, **kwargs) -> str:
-    """
-    Syntactic sugar for no color
-    """
-    return log_dict(d, with_color=False, **kwargs)
-
-
-def log_dict_id(d: Dict) -> str:
-    """
-    Indented dict
-    """
-    return json.dumps(d, indent=4)
-
-
-def log_dict_pg(d: Dict) -> str:
-    """
-    prettier dict colored by `pygments` and with indent
-    """
-    return highlight(log_dict_id(d), lexers.JsonLexer(), formatters.TerminalFormatter())
-
-
-def log_dict_p(d: Dict, **kwargs) -> str:
-    """
-    a compact, one-line str for dict
-
-    Intended as part of filename
-    """
-    return log_dict(d, with_color=False, sep='=', **kwargs)
+pl = PrettyLogger()
 
 
 def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int], Tuple[float]]:
@@ -387,7 +390,7 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
     else:  # `file-write`
         if not file_path:
-            raise ValueError(f'{logi(file_path)} must be specified for {logi("file-write")} logging')
+            raise ValueError(f'{pl.i(file_path)} must be specified for {pl.i("file-write")} logging')
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         handler = logging.FileHandler(file_path)
     handler.setLevel(logging.DEBUG)
@@ -421,11 +424,11 @@ class MlPrettier:
             raise ValueError('Either a key-value pair or a mapping is expected')
         if is_dict:
             d: Dict
-            return {k: self._pretty_single(k, v) for k, v in d.items()}
+            return {k: self.single(k, v) for k, v in d.items()}
         else:
-            return self._pretty_single(d, val)
+            return self.single(d, val)
 
-    def _pretty_single(self, key: str, val=None) -> Union[str, List[str], Dict[str, Any]]:
+    def single(self, key: str = None, val: Any = None) -> Union[str, List[str], Dict[str, Any]]:
         """
         `val` processing is infered based on key
         """
@@ -549,10 +552,10 @@ class CheckArg:
     def check_mismatch(self, display_name: str, val: str, accepted_values: List[str]):
         if self.verbose:
             d_log = dict(val=val, accepted_values=accepted_values)
-            CheckArg.logger.info(f'Checking {logi(display_name)} w/ {logi(d_log)}... ')
+            CheckArg.logger.info(f'Checking {pl.i(display_name)} w/ {pl.i(d_log)}... ')
         if val not in accepted_values:
-            raise ValueError(f'Unexpected {logi(display_name)}: '
-                             f'expect one of {logi(accepted_values)}, got {logi(val)}')
+            raise ValueError(f'Unexpected {pl.i(display_name)}: '
+                             f'expect one of {pl.i(accepted_values)}, got {pl.i(val)}')
 
     def __init__(self, ignore_none: bool = True, verbose: bool = False):
         """
@@ -567,7 +570,7 @@ class CheckArg:
         for k, v in kwargs.items():
             if self.ignore_none and v is None:
                 if self.verbose:
-                    CheckArg.logger.warning(f'Argument {logi(k)} is {logi("None")} and ignored')
+                    CheckArg.logger.warning(f'Argument {pl.i(k)} is {pl.i("None")} and ignored')
                 continue
             self.d_name2func[k](v)
 
@@ -611,30 +614,28 @@ if __name__ == '__main__':
 
     def check_log_lst():
         lst = ['sda', 'asd']
-        print(log_list(lst))
-        print(logi(lst))
-        with open('test-logi.txt', 'w') as f:
-            f.write(lognc(lst))
-    # check_log_lst()
+        print(pl.i(lst))
+        # with open('test-logi.txt', 'w') as f:
+        #     f.write(pl.nc(lst))
+    check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
-        print(log_tuple(tup))
-        print(logi(tup))
-    # check_log_tup()
+        print(pl.i(tup))
+    check_log_tup()
 
     def check_logi():
         d = dict(a=1, b=2)
-        print(logi(d))
-    # check_logi()
+        print(pl.i(d))
+    check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
         mic(d)
-        print(logi(d))
-        print(lognc(d))
-        mic(logi(d), lognc(d))
-    # check_nested_log_dict()
+        print(pl.i(d))
+        print(pl.nc(d))
+        mic(pl.i(d), pl.nc(d))
+    check_nested_log_dict()
 
     def check_logger():
         logger = get_logger('blah')
