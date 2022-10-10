@@ -404,7 +404,9 @@ class MlPrettier:
     """
     My utilities for deep learning training logging
     """
-    def __init__(self, ref: Dict[str, Any] = None, metric_keys: List[str] = None):
+    no_prefix = ('epoch', 'step')
+
+    def __init__(self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix):
         """
         :param ref: Reference that are potentially needed
             i.e. for logging epoch/step, need the total #
@@ -413,6 +415,7 @@ class MlPrettier:
         """
         self.ref = ref
         self.metric_keys = metric_keys or ['acc', 'recall', 'auc']
+        self.no_prefix = no_prefix
 
     def __call__(self, d: Union[str, Dict], val=None) -> Union[Any, Dict[str, Any]]:
         """
@@ -459,6 +462,18 @@ class MlPrettier:
             return f'{round(val, 7):.3e}'
         else:
             return val
+
+    def should_add_split_prefix(self, key: str) -> bool:
+        """
+        Whether to add split prefix to the key
+        """
+        return key not in self.no_prefix
+
+    def add_split_prefix(self, d: Dict[str, Any], split: str = None):
+        if split is None:
+            return d
+        else:
+            return {f'{split}/{k}' if self.should_add_split_prefix(k) else k: v for k, v in d.items()}
 
 
 class MyProgressCallback(TrainerCallback):
