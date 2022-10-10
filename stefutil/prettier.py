@@ -406,7 +406,10 @@ class MlPrettier:
     """
     no_prefix = ('epoch', 'step')
 
-    def __init__(self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix):
+    def __init__(
+            self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix,
+            with_color: bool = True
+    ):
         """
         :param ref: Reference that are potentially needed
             i.e. for logging epoch/step, need the total #
@@ -416,6 +419,7 @@ class MlPrettier:
         self.ref = ref
         self.metric_keys = metric_keys or ['acc', 'recall', 'auc']
         self.no_prefix = no_prefix
+        self.with_color = with_color
 
     def __call__(self, d: Union[str, Dict], val=None) -> Union[Any, Dict[str, Any]]:
         """
@@ -445,7 +449,10 @@ class MlPrettier:
             else:
                 fmt = f'%{len_lim + 4}.3f'
                 s_val = fmt % val
-            return f'{s_val}/{lim}'  # Pad integer
+            if self.with_color:
+                return f'{pl.i(s_val)}/{pl.i(lim)}'
+            else:
+                return f'{s_val}/{lim}'  # Pad integer
         elif 'loss' in key:
             return f'{round(val, 4):7.4f}'
         elif any(k in key for k in self.metric_keys):  # custom in-key-ratio metric
@@ -506,6 +513,7 @@ class MyProgressCallback(TrainerCallback):
         n_ep = int(state.epoch)
         if not is_eval:  # heuristic judging by the eval #epoch shown
             n_ep += 1
+
         return MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', n_ep)
 
     def on_epoch_begin(self, args, state, control, **kwargs):
