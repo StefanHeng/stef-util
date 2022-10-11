@@ -514,7 +514,7 @@ class MyProgressCallback(TrainerCallback):
         if not is_eval:  # heuristic judging by the eval #epoch shown
             n_ep += 1
 
-        return MlPrettier(ref=dict(epoch=state.num_train_epochs))('epoch', n_ep)
+        return MlPrettier(ref=dict(epoch=state.num_train_epochs), with_color=True)('epoch', n_ep)
 
     def on_epoch_begin(self, args, state, control, **kwargs):
         if state.is_local_process_zero:
