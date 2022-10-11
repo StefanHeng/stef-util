@@ -408,7 +408,7 @@ class MlPrettier:
 
     def __init__(
             self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix,
-            with_color: bool = True
+            with_color: bool = False
     ):
         """
         :param ref: Reference that are potentially needed
