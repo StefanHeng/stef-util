@@ -191,7 +191,7 @@ class PrettyLogger:
     @staticmethod
     def pa(s):
         assert isinstance(s, dict)
-        PrettyLogger.i(s, for_path=True, with_color=False)
+        return PrettyLogger.i(s, for_path=True, with_color=False)
 
     @staticmethod
     def nc(s, **kwargs):
