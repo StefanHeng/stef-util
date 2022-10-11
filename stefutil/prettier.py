@@ -65,7 +65,7 @@ def fmt_sizeof(num: int, suffix='B') -> str:
 
 def fmt_delta(secs: Union[int, float, datetime.timedelta]) -> str:
     if isinstance(secs, datetime.timedelta):
-        secs = secs.seconds + (secs.microseconds/1e6)
+        secs = 86400 * secs.days + secs.seconds + (secs.microseconds/1e6)
     if secs >= 86400:
         d = secs // 86400  # // floor division
         return f'{round(d)}d{fmt_delta(secs - d * 86400)}'
@@ -640,17 +640,17 @@ if __name__ == '__main__':
         print(pl.i(lst))
         # with open('test-logi.txt', 'w') as f:
         #     f.write(pl.nc(lst))
-    check_log_lst()
+    # check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
         print(pl.i(tup))
-    check_log_tup()
+    # check_log_tup()
 
     def check_logi():
         d = dict(a=1, b=2)
         print(pl.i(d))
-    check_logi()
+    # check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
@@ -658,7 +658,7 @@ if __name__ == '__main__':
         print(pl.i(d))
         print(pl.nc(d))
         mic(pl.i(d), pl.nc(d))
-    check_nested_log_dict()
+    # check_nested_log_dict()
 
     def check_logger():
         logger = get_logger('blah')
@@ -681,4 +681,13 @@ if __name__ == '__main__':
         ca_.cache_mismatch(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
         ca_(test='a')
         ca_(test=None)
-    check_ca_warn()
+    # check_ca_warn()
+
+    def check_time_delta():
+        import datetime
+        now_ = datetime.datetime.now()
+        last_day = now_ - datetime.timedelta(days=1, hours=1, minutes=1, seconds=1)
+        mic(now_, last_day)
+        diff = now_ - last_day
+        mic(diff, fmt_delta(diff))
+    check_time_delta()
