@@ -16,6 +16,7 @@ from collections import OrderedDict
 from collections.abc import Sized
 
 import pandas as pd
+from torch.utils.tensorboard import SummaryWriter
 from transformers import Trainer, TrainerCallback
 import sty
 import colorama
@@ -572,6 +573,41 @@ class MyProgressCallback(TrainerCallback):
         """
         callback = next(cb for cb in trainer.callback_handler.callbacks if isinstance(cb, MyProgressCallback))
         return callback.training_bar if trainer.model.training else callback.prediction_bar
+
+
+class LogStep:
+    """
+    My typical terminal, file-write, tqdm logging for a single step
+    """
+    def __init__(
+            self, trainer: Trainer = None, prettier: MlPrettier = None,
+            logger: logging.Logger = None, file_logger: logging.Logger = None,
+            tb_writer: SummaryWriter = None
+    ):
+        self.trainer = trainer
+        self.prettier = prettier
+        self.logger = logger
+        self.file_logger = file_logger
+        self.tb_writer = tb_writer
+
+    def _call__(self, d_log: Dict, training: bool = None):
+        training = training or self.trainer.model.training
+        d_log_write = self.prettier(d_log)
+
+        tb_step = d_log.get('step') if training else d_log.get('epoch')
+        pref = 'train' if training else 'eval'
+        for k, v in d_log.items():
+            if self.prettier.should_add_split_prefix(k):
+                self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
+
+        if self.trainer.with_tqdm:
+            pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
+            if pbar:
+                tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self.prettier.should_add_split_prefix(k)}
+                pbar.set_postfix(tqdm_kws)
+        else:
+            self.logger.info(pl.i(d_log))
+        self.file_logger.info(pl.nc(d_log))
 
 
 class CheckArg:
