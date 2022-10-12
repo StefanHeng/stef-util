@@ -16,7 +16,7 @@ from collections import OrderedDict
 from collections.abc import Sized
 
 import pandas as pd
-from transformers import TrainerCallback
+from transformers import Trainer, TrainerCallback
 import sty
 import colorama
 from tqdm.auto import tqdm
@@ -499,6 +499,7 @@ class MyProgressCallback(TrainerCallback):
         """
         self.training_bar = None
         self.prediction_bar = None
+
         self.train_only = train_only
         self.step_per_epoch = None
         self.current_step = None
@@ -560,6 +561,17 @@ class MyProgressCallback(TrainerCallback):
 
     def on_train_end(self, args, state, control, **kwargs):
         pass
+
+    @staticmethod
+    def get_current_progress_bar(trainer: Trainer):
+        """
+        Intended for adding per-step metrics to the progress bar during HF training
+
+        This is a hack,
+            since HF API don't support per-step callback not to mention exposing those metrics to the progress bar
+        """
+        callback = next(cb for cb in trainer.callback_handler.callbacks if isinstance(cb, MyProgressCallback))
+        return callback.training_bar if trainer.model.training else callback.prediction_bar
 
 
 class CheckArg:
