@@ -33,7 +33,7 @@ __all__ = [
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'CheckArg', 'ca',
     'now',
-    'MlPrettier', 'MyProgressCallback'
+    'MlPrettier', 'MyProgressCallback', 'LogStep'
 ]
 
 
@@ -584,30 +584,41 @@ class LogStep:
             logger: logging.Logger = None, file_logger: logging.Logger = None,
             tb_writer: SummaryWriter = None
     ):
+        if not trainer:
+            raise ValueError(f'A {pl.i("trainer")} is required')
+        if not hasattr(trainer, 'with_tqdm'):
+            raise ValueError(f'Trainer ill-formed: A custom {pl.i("with_tqdm")} field is needed')
         self.trainer = trainer
         self.prettier = prettier
         self.logger = logger
         self.file_logger = file_logger
         self.tb_writer = tb_writer
 
+    def _should_add(self, key: str) -> bool:
+        return self.prettier.should_add_split_prefix(key) if self.prettier else True
+
     def _call__(self, d_log: Dict, training: bool = None):
         training = training or self.trainer.model.training
-        d_log_write = self.prettier(d_log)
+        d_log_write = self.prettier(d_log) if self.prettier else d_log
 
-        tb_step = d_log.get('step') if training else d_log.get('epoch')
-        pref = 'train' if training else 'eval'
-        for k, v in d_log.items():
-            if self.prettier.should_add_split_prefix(k):
-                self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
+        if self.tb_writer:
+            tb_step = d_log.get('step') if training else d_log.get('epoch')
+            pref = 'train' if training else 'eval'
+            for k, v in d_log.items():
+                if self._should_add(k):
+                    self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
 
-        if self.trainer.with_tqdm:
+        if self.trainer.with_tqdm:  # a custom field I added
             pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
             if pbar:
-                tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self.prettier.should_add_split_prefix(k)}
+                tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
         else:
-            self.logger.info(pl.i(d_log))
-        self.file_logger.info(pl.nc(d_log))
+            if self.logger:
+                self.logger.info(pl.i(d_log))
+
+        if self.file_logger:
+            self.file_logger.info(pl.nc(d_log))
 
 
 class CheckArg:
