@@ -597,7 +597,7 @@ class LogStep:
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
 
-    def __call__(self, d_log: Dict, training: bool = None):
+    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True):
         training = training or self.trainer.model.training
         d_log_write = self.prettier(d_log) if self.prettier else d_log
 
@@ -613,7 +613,7 @@ class LogStep:
             if pbar:
                 tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
-        else:
+        if to_console:
             if self.logger:
                 self.logger.info(pl.i(d_log))
 
