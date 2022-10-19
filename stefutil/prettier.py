@@ -377,17 +377,17 @@ class MyFormatter(logging.Formatter):
         return self.formatter[entry.levelno].format(entry)
 
 
-def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging.Logger:
+def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> logging.Logger:
     """
     :param name: Name of the logger
-    :param typ: Logger type, one of [`stdout`, `file-write`]
+    :param kind: Logger type, one of [`stdout`, `file-write`]
     :param file_path: File path for file-write logging
     """
-    assert typ in ['stdout', 'file-write']
-    logger = logging.getLogger(f'{name} file write' if typ == 'file-write' else name)
+    assert kind in ['stdout', 'file-write']
+    logger = logging.getLogger(f'{name} file write' if kind == 'file-write' else name)
     logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
     logger.setLevel(logging.DEBUG)
-    if typ == 'stdout':
+    if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
     else:  # `file-write`
         if not file_path:
@@ -395,7 +395,7 @@ def get_logger(name: str, typ: str = 'stdout', file_path: str = None) -> logging
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         handler = logging.FileHandler(file_path)
     handler.setLevel(logging.DEBUG)
-    handler.setFormatter(MyFormatter(with_color=typ == 'stdout'))
+    handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
     logger.addHandler(handler)
     logger.propagate = False
     return logger

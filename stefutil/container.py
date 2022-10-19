@@ -107,6 +107,24 @@ def group_n(it: Iterable[T], n: int) -> Iterable[Tuple[T]]:
         yield chunk
 
 
+def split_n(it: Iterable[T], n: int) -> Iterable[Tuple[T]]:
+    """
+    Split iterable into exactly `n` groups of as even sizes as possible
+    """
+    n_sample_per_group = len(list(it)) / n
+    group_ordinal = 0
+    curr_group = []
+    for i, elm in enumerate(it):
+        edge = (group_ordinal + 1) * n_sample_per_group
+        if i + 0.5 < edge:
+            curr_group.append(elm)
+        else:
+            yield tuple(curr_group)
+            curr_group = [elm]
+            group_ordinal += 1
+    yield tuple(curr_group)
+
+
 def list_split(lst: List[T], call: Callable[[T], bool]) -> List[List[T]]:
     """
     :return: Split a list by locations of elements satisfying a condition
@@ -165,4 +183,16 @@ if __name__ == '__main__':
         ic(d)
         ic(get(d, 'a.b.c'))
         ic(get(d, 'a.b.e'))
-    check_get()
+    # check_get()
+
+    def check_split_n():
+        def _test(n_it: int = None, n: int = None):
+            ret = list(split_n(range(n_it), n))
+            ic(len(ret))
+            assert len(ret) == n
+            ic([len(elms) for elms in ret])
+            assert sum(len(elms) for elms in ret) == n_it
+        _test(n_it=16, n=3)
+        _test(n_it=156602, n=100)
+        _test(n_it=156602, n=1000)
+    check_split_n()
