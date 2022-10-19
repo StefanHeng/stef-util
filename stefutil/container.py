@@ -17,7 +17,7 @@ from stefutil.prettier import pl
 
 __all__ = [
     'get', 'set_', 'it_keys',
-    'list_is_same_elms', 'chain_its', 'join_it', 'group_n', 'list_split', 'lst2uniq_ids', 'compress',
+    'list_is_same_elms', 'chain_its', 'join_it', 'group_n', 'split_n', 'list_split', 'lst2uniq_ids', 'compress',
     'np_index', 'df_col2cat_col', 'pt_sample'
 ]
 
