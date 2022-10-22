@@ -10,7 +10,7 @@ import math
 import pprint
 import logging
 import datetime
-from typing import Tuple, List, Dict, Iterable, Any, Union
+from typing import Tuple, List, Dict, Iterable, Any, Union, Optional
 from pygments import highlight, lexers, formatters
 from collections import OrderedDict
 from collections.abc import Sized
@@ -631,14 +631,6 @@ class CheckArg:
     """
     logger = get_logger('Arg Checker')
 
-    def check_mismatch(self, display_name: str, val: str, accepted_values: List[str]):
-        if self.verbose:
-            d_log = dict(val=val, accepted_values=accepted_values)
-            CheckArg.logger.info(f'Checking {pl.i(display_name)} w/ {pl.i(d_log)}... ')
-        if val not in accepted_values:
-            raise ValueError(f'Unexpected {pl.i(display_name)}: '
-                             f'expect one of {pl.i(accepted_values)}, got {pl.i(val)}')
-
     def __init__(self, ignore_none: bool = True, verbose: bool = False):
         """
         :param ignore_none: If true, arguments passed in as `None` will not raise error
@@ -650,14 +642,28 @@ class CheckArg:
 
     def __call__(self, **kwargs):
         for k, v in kwargs.items():
-            if self.ignore_none and v is None:
-                if self.verbose:
-                    CheckArg.logger.warning(f'Argument {pl.i(k)} is {pl.i("None")} and ignored')
-                continue
             self.d_name2func[k](v)
 
+    def check_mismatch(
+            self, display_name: str, val: Optional[str], accepted_values: List[str], attribute_name: str = None
+    ):
+        if self.ignore_none and val is None:
+            if self.verbose:
+                if attribute_name:
+                    s = f'{pl.i(display_name)}::{pl.i(attribute_name)}'
+                else:
+                    s = pl.i(display_name)
+                CheckArg.logger.warning(f'Argument {s} is {pl.i("None")} and ignored')
+            return
+        if self.verbose:
+            d_log = dict(val=val, accepted_values=accepted_values)
+            CheckArg.logger.info(f'Checking {pl.i(display_name)} w/ {pl.i(d_log)}... ')
+        if val not in accepted_values:
+            raise ValueError(f'Unexpected {pl.i(display_name)}: '
+                             f'expect one of {pl.i(accepted_values)}, got {pl.i(val)}')
+
     def cache_mismatch(self, display_name: str, attr_name: str, accepted_values: List[str]):
-        self.d_name2func[attr_name] = lambda x: self.check_mismatch(display_name, x, accepted_values)
+        self.d_name2func[attr_name] = lambda x: self.check_mismatch(display_name, x, accepted_values, attr_name)
 
 
 ca = CheckArg()
@@ -740,7 +746,8 @@ if __name__ == '__main__':
         ca_.cache_mismatch(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
         ca_(test='a')
         ca_(test=None)
-    # check_ca_warn()
+        ca_.check_mismatch('Blah', None, ['hah', 'does not matter'])
+    check_ca_warn()
 
     def check_time_delta():
         import datetime
@@ -749,4 +756,4 @@ if __name__ == '__main__':
         mic(now_, last_day)
         diff = now_ - last_day
         mic(diff, fmt_delta(diff))
-    check_time_delta()
+    # check_time_delta()
