@@ -16,7 +16,7 @@ from tqdm.contrib import concurrent as tqdm_concurrent
 from stefutil.prettier import ca
 
 
-__all__ = ['conc_map', 'batched_conc_map']
+__all__ = ['conc_map', 'batched_conc_map', 'conc_yield']
 
 
 T = TypeVar('T')
@@ -26,30 +26,36 @@ MapFn = Callable[[T], K]
 BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 
+def _check_conc_mode(mode: str):
+    ca.check_mismatch('Concurrency Mode', mode, ['thread', 'process'])
+
+
 def conc_map(
-        fn: MapFn, it: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(), mode: str = 'thread'
+        fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(),
+        mode: str = 'thread'
 ) -> Iterable[K]:
     """
     Wrapper for `concurrent.futures.map`
 
     :param fn: A function
-    :param it: A list of elements
+    :param args: A list of elements as input to the function
     :param with_tqdm: If true, progress bar is shown
-        If dict, treated as `tqdm` concurrent kwargs  # FYT `chunksize` is helpful
+        If dict, treated as `tqdm` concurrent kwargs
+            note `chunksize` is helpful
     :param n_worker: Number of concurrent workers
     :param mode: One of ['thread', 'process']
         Function has to be pickleable if 'process'
     :return: Iterator of `lst` elements mapped by `fn` with thread concurrency
     """
-    ca.check_mismatch('Concurrency Mode', mode, ['thread', 'process'])
+    _check_conc_mode(mode=mode)
     if with_tqdm:
         cls = tqdm_concurrent.thread_map if mode == 'thread' else tqdm_concurrent.process_map
-        args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
-        return cls(fn, it, max_workers=n_worker, **args)
+        tqdm_args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
+        return cls(fn, args, max_workers=n_worker, **tqdm_args)
     else:
         cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
         with cls(max_workers=n_worker) as executor:
-            return executor.map(fn, it)
+            return executor.map(fn, args)
 
 
 """
@@ -90,7 +96,7 @@ class BatchedMap:
 
 def batched_conc_map(
         fn: Union[MapFn, BatchedMapFn],
-        it: Union[Iterable[T], List[T], np.array], n: int = None, n_worker: int = os.cpu_count(),
+        args: Union[Iterable[T], List[T], np.array], n: int = None, n_worker: int = os.cpu_count(),
         batch_size: int = None,
         with_tqdm: Union[bool, dict, tqdm] = False,
         is_batched_fn: bool = False,
@@ -101,7 +107,7 @@ def batched_conc_map(
     Operates on batch/subset of `lst` elements given inclusive begin & exclusive end indices
 
     :param fn: A map function that operates on a single element
-    :param it: A list of elements to map
+    :param args: A list of elements to map
     :param n: #elements to map if `it` is not Sized
     :param n_worker: Number of concurrent workers
     :param batch_size: Number of elements for each sub-process worker
@@ -115,7 +121,7 @@ def batched_conc_map(
     .. note:: Concurrently is not invoked if too little list elements given number of workers
         Force concurrency with `batch_size`
     """
-    n = n or len(it)
+    n = n or len(args)
     if (n_worker > 1 and n > n_worker * 4) or batch_size:  # factor of 4 is arbitrary, otherwise not worse the overhead
         preprocess_batch = batch_size or round(n / n_worker / 2)
         strts: List[int] = list(range(0, n, preprocess_batch))
@@ -143,14 +149,102 @@ def batched_conc_map(
             tqdm_args = dict(with_tqdm=False)
 
         batched_map = BatchedMap(fn, is_batched_fn, pbar)
-        map_out = conc_map(fn=batched_map, it=[(it, s, e) for s, e in zip(strts, ends)], **tqdm_args)
+        map_out = conc_map(fn=batched_map, args=[(args, s, e) for s, e in zip(strts, ends)], **tqdm_args)
         for lst_ in map_out:
             lst_out.extend(lst_)
         return lst_out
     else:
-        gen = tqdm(it) if with_tqdm else it
+        gen = tqdm(args) if with_tqdm else args
         if is_batched_fn:
-            args = gen, 0, n
-            return fn(*args)
+            _args = gen, 0, n
+            return fn(*_args)
         else:
             return [fn(x) for x in gen]
+
+
+def conc_yield(
+        fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(),
+        mode: str = 'thread'
+) -> Iterable[K]:
+    """
+    Wrapper for `concurrent.futures`, yielding results as they become available, irrelevant of order
+
+    :param fn: A function
+    :param args: A list of elements as input to the function
+    :param with_tqdm: If true, progress bar is shown
+        If dict, treated as `tqdm` concurrent kwargs
+            note `chunksize` is helpful
+    :param n_worker: Number of concurrent workers
+    :param mode: One of ['thread', 'process']
+        Function has to be pickleable if 'process'
+    :return: Iterator of `lst` elements mapped by `fn` with thread concurrency
+    """
+    _check_conc_mode(mode=mode)
+
+    cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
+    executor = cls(max_workers=n_worker)
+
+    pbar = None
+    if with_tqdm:
+        tqdm_args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
+        pbar = tqdm(**tqdm_args)
+
+    futures = [executor.submit(fn, a) for a in args]
+    for f in concurrent.futures.as_completed(futures):
+        res = f.result()
+        if with_tqdm:
+            pbar.update(1)
+        yield res
+
+
+# Developing
+import time
+import random
+
+from prettier import pl, mic
+
+
+def work(task_idx):
+    t = random.uniform(1, 4)
+    t = round(t, 3)
+    print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
+    time.sleep(t)
+
+    print(f'Task {pl.i(task_idx)} is done')
+    return task_idx
+
+
+if __name__ == '__main__':
+    def work(task_idx):
+        t = random.uniform(1, 4)
+        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
+        time.sleep(t)
+
+        print(f'Task {pl.i(task_idx)} is done')
+        return task_idx
+
+    def try_concurrent_yield():
+
+        # this will gather all results and return
+        # with ThreadPoolExecutor() as executor:
+        #     for result in executor.map(work, range(3)):
+        #         print(result)
+        # executor = concurrent.futures.ThreadPoolExecutor()
+        executor = concurrent.futures.ProcessPoolExecutor()
+        args = list(range(4))
+        futures = [executor.submit(work, a) for a in args]
+        for f in concurrent.futures.as_completed(futures):
+            res = f.result()
+            mic(res)
+    # try_concurrent_yield()
+
+    def check_conc_yield():
+        n = 10
+        it = range(n)
+        with_tqdm = dict(total=n)
+        n_worker = 4
+        mode = 'process'
+        # mode = 'thread'
+        for res in conc_yield(fn=work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode):
+            mic(res)
+    check_conc_yield()
