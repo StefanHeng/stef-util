@@ -168,6 +168,7 @@ def conc_yield(
 ) -> Iterable[K]:
     """
     Wrapper for `concurrent.futures`, yielding results as they become available, irrelevant of order
+        Intended for loading up data where each instance takes relatively heavy processing time
 
     :param fn: A function
     :param args: A list of elements as input to the function
@@ -197,21 +198,23 @@ def conc_yield(
         yield res
 
 
-# Developing
-import time
-import random
+# DEV = True
+DEV = False
+if DEV:
+    import time
+    import random
 
-from prettier import pl, mic
+    from stefutil.prettier import pl, mic
 
 
-def work(task_idx):
-    t = random.uniform(1, 4)
-    t = round(t, 3)
-    print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
-    time.sleep(t)
+    def work(task_idx):
+        t = random.uniform(1, 4)
+        t = round(t, 3)
+        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
+        time.sleep(t)
 
-    print(f'Task {pl.i(task_idx)} is done')
-    return task_idx
+        print(f'Task {pl.i(task_idx)} is done')
+        return task_idx
 
 
 if __name__ == '__main__':
