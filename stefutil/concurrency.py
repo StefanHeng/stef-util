@@ -6,7 +6,7 @@ intended for (potentially heavy) data processing
 
 import os
 import concurrent.futures
-from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union, Set
+from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
 
 import numpy as np
 from tqdm.std import tqdm as std_tqdm  # root for type check
@@ -168,13 +168,13 @@ class BatchedFn:
         self.fn = fn
         self.pbar = pbar
 
-    def __call__(self, args: Iterable[T]) -> Set[K]:
+    def __call__(self, args: Iterable[T]) -> List[K]:
         """
         No order enforced
         """
-        ret = set()
+        ret = []
         for a in args:
-            ret.add(self.fn(a))
+            ret.append(self.fn(a))
             if self.pbar:
                 self.pbar.update(1)
         return ret
