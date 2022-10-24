@@ -6,13 +6,14 @@ intended for (potentially heavy) data processing
 
 import os
 import concurrent.futures
-from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
+from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union, Set
 
 import numpy as np
 from tqdm.std import tqdm as std_tqdm  # root for type check
 from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
 
+from stefutil.container import group_n
 from stefutil.prettier import ca
 
 
@@ -162,9 +163,26 @@ def batched_conc_map(
             return [fn(x) for x in gen]
 
 
+class BatchedFn:
+    def __init__(self, fn: MapFn, pbar=None):
+        self.fn = fn
+        self.pbar = pbar
+
+    def __call__(self, args: Iterable[T]) -> Set[K]:
+        """
+        No order enforced
+        """
+        ret = set()
+        for a in args:
+            ret.add(self.fn(a))
+            if self.pbar:
+                self.pbar.update(1)
+        return ret
+
+
 def conc_yield(
         fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(),
-        mode: str = 'thread'
+        mode: str = 'thread', batch_size: Union[int, bool] = None
 ) -> Iterable[K]:
     """
     Wrapper for `concurrent.futures`, yielding results as they become available, irrelevant of order
@@ -178,6 +196,8 @@ def conc_yield(
     :param n_worker: Number of concurrent workers
     :param mode: One of ['thread', 'process']
         Function has to be pickleable if 'process'
+    :param batch_size: Number of elements for each sub-process worker
+        Intended to lower concurrency overhead
     :return: Iterator of `lst` elements mapped by `fn` with thread concurrency
     """
     _check_conc_mode(mode=mode)
@@ -190,12 +210,26 @@ def conc_yield(
         tqdm_args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
         pbar = tqdm(**tqdm_args)
 
-    futures = [executor.submit(fn, a) for a in args]
-    for f in concurrent.futures.as_completed(futures):
-        res = f.result()
-        if with_tqdm:
-            pbar.update(1)
-        yield res
+    if batch_size:
+        batch_size = 32 if isinstance(batch_size, int) else batch_size
+        # pbar doesn't work w/ pickle hence multiprocessing
+        fn = BatchedFn(fn=fn, pbar=pbar if mode == 'thread' else None)
+        futures = set(executor.submit(fn, args_) for args_ in group_n(args, batch_size))
+        for f in concurrent.futures.as_completed(futures):
+            if mode == 'thread':
+                yield from f.result()
+            else:
+                res = f.result()
+                if pbar:
+                    pbar.update(len(res))
+                yield from res
+    else:
+        futures = set(executor.submit(fn, a) for a in args)
+        for f in concurrent.futures.as_completed(futures):
+            res = f.result()
+            if with_tqdm:
+                pbar.update(1)
+            yield res
 
 
 # DEV = True
@@ -242,12 +276,21 @@ if __name__ == '__main__':
     # try_concurrent_yield()
 
     def check_conc_yield():
-        n = 10
+        batch = False
+
+        if batch:
+            bsz = 4
+            n = 100
+        else:
+            bsz = None
+            n = 10
+
         it = range(n)
         with_tqdm = dict(total=n)
         n_worker = 4
+
         mode = 'process'
         # mode = 'thread'
-        for res in conc_yield(fn=work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode):
+        for res in conc_yield(fn=work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
             mic(res)
     check_conc_yield()
