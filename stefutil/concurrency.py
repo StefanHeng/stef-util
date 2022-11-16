@@ -175,7 +175,7 @@ class BatchedFn:
         ret = []
         for a in args:
             ret.append(self.fn(a))
-            if self.pbar:
+            if self.pbar is not None:
                 self.pbar.update(1)
         return ret
 
@@ -220,7 +220,7 @@ def conc_yield(
                 yield from f.result()
             else:
                 res = f.result()
-                if pbar:
+                if pbar is not None:
                     pbar.update(len(res))
                 yield from res
     else:
