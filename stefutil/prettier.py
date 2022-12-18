@@ -161,7 +161,7 @@ class PrettyLogger:
             need_reset = True
         reset = PrettyLogger.reset if need_reset else ''
         if as_str:
-            return f'{c}{s:>{pad}}{reset}' if pad is not None else f'{c}{s}{reset}'
+            return f'{c}{s:>{pad}}{reset}' if pad else f'{c}{s}{reset}'
         else:
             print(f'{c}{PrettyLogger.log(now(), c=c_time, as_str=True)}| {s}{reset}')
 
@@ -190,9 +190,9 @@ class PrettyLogger:
             return PrettyLogger.s(s, **kwargs_)
 
     @staticmethod
-    def pa(s):
+    def pa(s, **kwargs):
         assert isinstance(s, dict)
-        return PrettyLogger.i(s, for_path=True, with_color=False)
+        return PrettyLogger.i(s, for_path=True, with_color=False, **kwargs)
 
     @staticmethod
     def nc(s, **kwargs):
@@ -245,7 +245,7 @@ class PrettyLogger:
                         if with_color:
                             return PrettyLogger.log(v, c='i', as_str=True, pad=pad_float)
                         else:
-                            return f'{v:>{pad_float}}'
+                            return f'{v:>{pad_float}}' if pad_float else v
                     else:
                         return PrettyLogger.i(v) if with_color else v
                 else:
@@ -757,3 +757,11 @@ if __name__ == '__main__':
         diff = now_ - last_day
         mic(diff, fmt_delta(diff))
     # check_time_delta()
+
+    def check_float_pad():
+        d = dict(ratio=0.95)
+        print(pl.i(d))
+        print(pl.i(d, pad_float=False))
+        print(pl.pa(d))
+        print(pl.pa(d, pad_float=False))
+    check_float_pad()
