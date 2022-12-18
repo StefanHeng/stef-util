@@ -211,7 +211,7 @@ def conc_yield(
         pbar = tqdm(**tqdm_args)
 
     if batch_size:
-        batch_size = 32 if isinstance(batch_size, int) else batch_size
+        batch_size = 32 if isinstance(batch_size, bool) else batch_size
         # pbar doesn't work w/ pickle hence multiprocessing
         fn = BatchedFn(fn=fn, pbar=pbar if mode == 'thread' else None)
         futures = set(executor.submit(fn, args_) for args_ in group_n(args, batch_size))
