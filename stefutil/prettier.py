@@ -27,7 +27,7 @@ from stefutil.primitive import is_float
 
 
 __all__ = [
-    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit',
+    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal',
     'MyIceCreamDebugger', 'mic',
     'PrettyLogger', 'pl',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
@@ -95,6 +95,14 @@ def nth_sig_digit(flt: float, n: int = 1) -> float:
     :return: first n-th significant digit of `sig_d`
     """
     return float('{:.{p}g}'.format(flt, p=n))
+
+
+def ordinal(n: int) -> str:
+    if 11 <= (n % 100) <= 13:
+        suffix = 'th'
+    else:
+        suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+    return str(n) + suffix
 
 
 class MyIceCreamDebugger(IceCreamDebugger):
@@ -764,4 +772,8 @@ if __name__ == '__main__':
         print(pl.i(d, pad_float=False))
         print(pl.pa(d))
         print(pl.pa(d, pad_float=False))
-    check_float_pad()
+    # check_float_pad()
+
+    def check_ordinal():
+        mic([ordinal(n) for n in range(1, 32)])
+    check_ordinal()
