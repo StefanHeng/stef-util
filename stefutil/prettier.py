@@ -8,6 +8,7 @@ import sys
 import json
 import math
 import pprint
+import string
 import logging
 import datetime
 from typing import Tuple, List, Dict, Iterable, Any, Union, Optional
@@ -30,6 +31,7 @@ __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal',
     'MyIceCreamDebugger', 'mic',
     'PrettyLogger', 'pl',
+    'str2ascii_str', 'sanitize_str',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
     'CheckArg', 'ca',
     'now',
@@ -272,6 +274,21 @@ class PrettyLogger:
 
 
 pl = PrettyLogger()
+
+
+def str2ascii_str(s: str) -> str:
+    if not hasattr(str2ascii_str, 'printable'):
+        str2ascii_str.printable = set(string.printable)
+    return ''.join([x for x in s if x in str2ascii_str.printable])
+
+
+def sanitize_str(s: str) -> str:
+    if not hasattr(sanitize_str, 'whitespace_pattern'):
+        sanitize_str.whitespace_pattern = re.compile(r'\s+')
+    ret = sanitize_str.whitespace_pattern.sub(' ', str2ascii_str(s)).strip()
+    if ret == '':
+        raise ValueError(f'Empty text after cleaning, was {pl.i(s)}')
+    return ret
 
 
 def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int], Tuple[float]]:
