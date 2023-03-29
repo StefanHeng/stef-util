@@ -29,3 +29,59 @@ ca.cache_mismatch(
 ori = 'v'
 ca(bar_orient=ori)
 ```
+
+
+
+## Highlights
+
+An incomplete list of features. 
+
+
+
+### Modified `IceCream` Debugging
+
+[`IceCream`](https://github.com/gruns/icecream) debugging print with custom output width, intended for various terminal sizes. 
+
+```python
+from stefutil import mic
+mic.output_width = 256 
+```
+
+
+
+### Custom colored logger formatting 
+
+```python
+from stefutil import get_logger
+logger = get_logger('<Script-Name>')
+```
+
+
+
+### Prettier Training Log
+
+Updates to [`HuggingFace transformers`](https://github.com/huggingface/transformers) training & logging, including custom [`tqdm`](https://github.com/tqdm/tqdm) progress bar and [`TensorBoard`](https://www.tensorflow.org/tensorboard) logging. 
+
+```python
+from stefutil import MlPrettier, LogStep, pl
+
+# Before training
+prettier = MlPrettier(ref=train_meta, metric_keys=['acc', 'recall', 'auc', 'ikr'])
+ls = LogStep(
+    trainer=trainer, prettier=prettier, logger=logger, 
+    file_logger=file_logger, tb_writer=tb_writer
+)
+
+"""
+...
+"""
+
+# During each training/eval step
+for step in training_or_eval_steps:
+    logs = prettier(logs)
+    logger.info(pl.i(logs))
+    file_logger.info(pl.nc(logs))
+```
+
+
+
