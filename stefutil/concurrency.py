@@ -181,7 +181,8 @@ class BatchedFn:
 
 
 def conc_yield(
-        fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False, n_worker: int = os.cpu_count(),
+        fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False,
+        n_worker: int = os.cpu_count()-1,  # since the calling script consumes one process
         mode: str = 'thread', batch_size: Union[int, bool] = None
 ) -> Iterable[K]:
     """
@@ -217,9 +218,12 @@ def conc_yield(
         futures = set(executor.submit(fn, args_) for args_ in group_n(args, batch_size))
         for f in concurrent.futures.as_completed(futures):
             if mode == 'thread':
-                yield from f.result()
+                res = f.result()
+                futures.remove(f)
+                yield from res
             else:
                 res = f.result()
+                futures.remove(f)
                 if pbar is not None:
                     pbar.update(len(res))
                 yield from res
@@ -227,6 +231,7 @@ def conc_yield(
         futures = set(executor.submit(fn, a) for a in args)
         for f in concurrent.futures.as_completed(futures):
             res = f.result()
+            futures.remove(f)
             if with_tqdm:
                 pbar.update(1)
             yield res
@@ -254,7 +259,7 @@ if DEV:
 if __name__ == '__main__':
     def work(task_idx):
         t = random.uniform(1, 4)
-        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
+        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)}s')
         time.sleep(t)
 
         print(f'Task {pl.i(task_idx)} is done')
@@ -293,4 +298,40 @@ if __name__ == '__main__':
         # mode = 'thread'
         for res in conc_yield(fn=work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
             mic(res)
-    check_conc_yield()
+    # check_conc_yield()
+
+    def test_conc_mem_use():
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        from stefutil.prettier import pl, get_logger
+
+        n = 30
+        # remove_job = True
+        remove_job = False
+        logger = get_logger('Mem Use')
+
+        def dummy_fn(x: int):
+            t = random.uniform(0.2, 1)
+            logger.info(f'Calling dummy_fn w/ arg {pl.i(x)}, will sleep for {pl.i(t)}s')
+            time.sleep(t)
+
+            return x, [random.random() for _ in range(int(1e6))]
+
+        # test_code = True
+        test_code = False
+        if test_code:
+            n_processed = 0
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {executor.submit(dummy_fn, i) for i in range(n)}
+                for f in as_completed(futures):
+                    i, _ = f.result()
+                    if remove_job:
+                        futures.remove(f)
+                    n_processed += 1
+                    logger.info(f'Process {pl.i(i)} terminated, {pl.i(n_processed)} / {pl.i(n)} processed')
+        else:
+            args = dict(with_tqdm=dict(total=n), n_worker=3, mode='process', batch_size=4)
+            for i in conc_yield(fn=dummy_fn, args=range(n), **args):
+                i, _ = i
+                logger.info(f'Process {pl.i(i)} terminated')
+    test_conc_mem_use()
