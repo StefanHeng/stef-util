@@ -26,22 +26,25 @@ T = TypeVar('T')
 K = TypeVar('K')
 
 
-def get(dic: Dict, ks: str):
+def get(dic: Dict, ks: str = None):
     """
     :param dic: Potentially multi-level dictionary
     :param ks: Potentially `.`-separated keys
     """
-    ks = ks.split('.')
-    _past_keys = []
-    acc = dic
-    for lvl, k in enumerate(ks):
-        if k not in acc:
-            _past_keys = pl.s('=>', c='m').join([pl.i(k) for k in _past_keys])
-            d_log = {'past keys': _past_keys, 'available keys': list(acc.keys())}
-            raise ValueError(f'{pl.i(k)} not found at level {pl.i(lvl+1)} with {pl.i(d_log)}')
-        acc = acc[k]
-        _past_keys.append(k)
-    return acc
+    if ks is None or ks in ['', '.']:
+        return dic
+    else:
+        ks = ks.split('.')
+        _past_keys = []
+        acc = dic
+        for lvl, k in enumerate(ks):
+            if k not in acc:
+                _past_keys = pl.s('=>', c='m').join([pl.i(k) for k in _past_keys])
+                d_log = {'past keys': _past_keys, 'available keys': list(acc.keys())}
+                raise ValueError(f'{pl.i(k)} not found at level {pl.i(lvl+1)} with {pl.i(d_log)}')
+            acc = acc[k]
+            _past_keys.append(k)
+        return acc
 
 
 def set_(dic, ks, val):
@@ -182,8 +185,14 @@ if __name__ == '__main__':
         d = {'a': {'b': {'c': 1, 'd': 2}, 'e': 3}, 'f': 4}
         ic(d)
         ic(get(d, 'a.b.c'))
-        ic(get(d, 'a.b.e'))
-    # check_get()
+
+        ic(get(d, ''))
+        ic(get(d, '.'))
+        ic(get(d, None))
+        ic(get(d))
+
+        ic(get(d, 'a.b.e'))  # will raise error
+    check_get()
 
     def check_split_n():
         def _test(n_it: int = None, n: int = None):
@@ -195,4 +204,4 @@ if __name__ == '__main__':
         _test(n_it=16, n=3)
         _test(n_it=156602, n=100)
         _test(n_it=156602, n=1000)
-    check_split_n()
+    # check_split_n()

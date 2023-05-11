@@ -183,7 +183,8 @@ class BatchedFn:
 def conc_yield(
         fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False,
         n_worker: int = os.cpu_count()-1,  # since the calling script consumes one process
-        mode: str = 'thread', batch_size: Union[int, bool] = None
+        mode: str = 'thread', batch_size: Union[int, bool] = None,
+        process_chunk_size: int = None, process_chunk_multiplier: int = None
 ) -> Iterable[K]:
     """
     Wrapper for `concurrent.futures`, yielding results as they become available, irrelevant of order
@@ -199,11 +200,17 @@ def conc_yield(
         Function has to be pickleable if 'process'
     :param batch_size: Number of elements for each sub-process worker
         Intended to lower concurrency overhead
+    :param process_chunk_size: If mode is `process`,
+        elements are chunked into groups of `process_chunk_size` for a sequence of concurrent pools
+    :param process_chunk_multiplier: If mode is `process`,
+        elements are chunked into groups of `n_worker` x `batch_size` x `process_chunk_multiplier`
+            for a sequence of concurrent pools
     :return: Iterator of `lst` elements mapped by `fn` with thread concurrency
     """
     _check_conc_mode(mode=mode)
 
-    cls = concurrent.futures.ThreadPoolExecutor if mode == 'thread' else concurrent.futures.ProcessPoolExecutor
+    is_thread = mode == 'thread'
+    cls = concurrent.futures.ThreadPoolExecutor if is_thread else concurrent.futures.ProcessPoolExecutor
     executor = cls(max_workers=n_worker)
 
     pbar = None
@@ -214,22 +221,40 @@ def conc_yield(
     if batch_size:
         batch_size = 32 if isinstance(batch_size, bool) else batch_size
         # pbar doesn't work w/ pickle hence multiprocessing
-        fn = BatchedFn(fn=fn, pbar=pbar if mode == 'thread' else None)
-        futures = set(executor.submit(fn, args_) for args_ in group_n(args, batch_size))
-        for f in concurrent.futures.as_completed(futures):
-            if mode == 'thread':
-                res = f.result()
-                futures.remove(f)
-                yield from res
-            else:
-                res = f.result()
-                futures.remove(f)
-                if pbar is not None:
-                    pbar.update(len(res))
-                yield from res
+        fn = BatchedFn(fn=fn, pbar=pbar if is_thread else None)
+        if process_chunk_size is not None:
+            chunk = process_chunk_size
+        elif process_chunk_multiplier is not None:
+            chunk = n_worker * batch_size * process_chunk_multiplier
+        else:
+            chunk = None
+
+        if not is_thread and chunk:
+            it_args = group_n(args, chunk)
+            for args_ in it_args:
+                futures = set(executor.submit(fn, args_) for args_ in group_n(args_, batch_size))
+                for f in concurrent.futures.as_completed(futures):
+                    res = f.result()
+                    futures.remove(f)
+                    if pbar is not None:
+                        pbar.update(len(res))
+                    yield from res
+        else:
+            futures = set(executor.submit(fn, args_) for args_ in group_n(args, batch_size))
+            for f in concurrent.futures.as_completed(futures):
+                if is_thread:
+                    res = f.result()
+                    futures.remove(f)
+                    yield from res
+                else:
+                    res = f.result()
+                    futures.remove(f)
+                    if pbar is not None:
+                        pbar.update(len(res))
+                    yield from res
     else:
         futures = set(executor.submit(fn, a) for a in args)
-        for f in concurrent.futures.as_completed(futures):
+        for f in concurrent.futures.as_completed(futures):  # TODO: process chunking
             res = f.result()
             futures.remove(f)
             if with_tqdm:
@@ -243,12 +268,12 @@ if DEV:
     import time
     import random
 
-    from stefutil.prettier import pl, mic
+    from stefutil.prettier import pl, mic, get_logger
 
+    logger = get_logger('Conc Dev')
 
-    def work(task_idx):
-        t = random.uniform(1, 4)
-        t = round(t, 3)
+    def _work(task_idx):
+        t = round(random.uniform(1, 4), 3)
         print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
         time.sleep(t)
 
@@ -256,17 +281,16 @@ if DEV:
         return task_idx
 
 
-if __name__ == '__main__':
-    def work(task_idx):
-        t = random.uniform(1, 4)
-        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)}s')
+    def _dummy_fn(x: int):
+        t = round(random.uniform(0.2, 1), 3)
+        logger.info(f'Calling dummy_fn w/ arg {pl.i(x)}, will sleep for {pl.i(t)}s')
         time.sleep(t)
 
-        print(f'Task {pl.i(task_idx)} is done')
-        return task_idx
+        return x, [random.random() for _ in range(int(1e6))]
 
+
+if __name__ == '__main__':
     def try_concurrent_yield():
-
         # this will gather all results and return
         # with ThreadPoolExecutor() as executor:
         #     for result in executor.map(work, range(3)):
@@ -274,7 +298,7 @@ if __name__ == '__main__':
         # executor = concurrent.futures.ThreadPoolExecutor()
         executor = concurrent.futures.ProcessPoolExecutor()
         args = list(range(4))
-        futures = [executor.submit(work, a) for a in args]
+        futures = [executor.submit(_work, a) for a in args]
         for f in concurrent.futures.as_completed(futures):
             res = f.result()
             mic(res)
@@ -296,33 +320,23 @@ if __name__ == '__main__':
 
         mode = 'process'
         # mode = 'thread'
-        for res in conc_yield(fn=work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
+        for res in conc_yield(fn=_work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
             mic(res)
     # check_conc_yield()
 
     def test_conc_mem_use():
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        from stefutil.prettier import pl, get_logger
-
         n = 30
         # remove_job = True
         remove_job = False
-        logger = get_logger('Mem Use')
-
-        def dummy_fn(x: int):
-            t = random.uniform(0.2, 1)
-            logger.info(f'Calling dummy_fn w/ arg {pl.i(x)}, will sleep for {pl.i(t)}s')
-            time.sleep(t)
-
-            return x, [random.random() for _ in range(int(1e6))]
 
         # test_code = True
         test_code = False
         if test_code:
             n_processed = 0
             with ThreadPoolExecutor(max_workers=3) as executor:
-                futures = {executor.submit(dummy_fn, i) for i in range(n)}
+                futures = {executor.submit(_dummy_fn, i) for i in range(n)}
                 for f in as_completed(futures):
                     i, _ = f.result()
                     if remove_job:
@@ -331,7 +345,18 @@ if __name__ == '__main__':
                     logger.info(f'Process {pl.i(i)} terminated, {pl.i(n_processed)} / {pl.i(n)} processed')
         else:
             args = dict(with_tqdm=dict(total=n), n_worker=3, mode='process', batch_size=4)
-            for i in conc_yield(fn=dummy_fn, args=range(n), **args):
+            for i in conc_yield(fn=_dummy_fn, args=range(n), **args):
                 i, _ = i
                 logger.info(f'Process {pl.i(i)} terminated')
-    test_conc_mem_use()
+    # test_conc_mem_use()
+
+    def check_conc_process_chunk():
+        n = 200
+        # chunk_mult = 4
+        bsz, n_worker = 4, 4
+        # args = dict(n_worker=4, mode='process', batch_size=bsz, process_chunk_size=chunk_mult * bsz * n_worker)
+        args = dict(n_worker=4, mode='process', batch_size=bsz, process_chunk_multiplier=4)
+        for i in conc_yield(fn=_dummy_fn, args=range(n), with_tqdm=dict(total=n), **args):
+            i, _ = i
+            logger.info(f'Process {pl.i(i)} terminated')
+    check_conc_process_chunk()

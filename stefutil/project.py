@@ -25,13 +25,13 @@ class StefConfig:
         with open(config_file, 'r') as f:
             self.d = json.load(f)
 
-    def __call__(self, keys: str):
+    def __call__(self, keys: str = None):
         """
         Retrieves the queried attribute value from the config file
 
         Loads the config file on first call.
         """
-        return get(self.d, keys)
+        return get(dic=self.d, ks=keys)
 
 
 class StefUtil:
