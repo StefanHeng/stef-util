@@ -17,7 +17,8 @@ def get_torch_device():
 
 
 def model_param_size(m: torch.nn.Module, as_str=True) -> Union[int, str]:
-    num = sum(p.numel() for p in m.parameters())
+    num = m.num_parameters()
+    assert num == sum(p.numel() for p in m.parameters())
     return fmt_num(num) if as_str else num
 
 

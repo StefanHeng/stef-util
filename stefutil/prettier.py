@@ -605,16 +605,17 @@ class LogStep:
     My typical terminal, file-write, tqdm logging for a single step
     """
     def __init__(
-            self, trainer: Trainer = None, prettier: MlPrettier = None,
+            self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
             logger: logging.Logger = None, file_logger: logging.Logger = None,
             tb_writer: SummaryWriter = None
     ):
-        if not trainer:
-            raise ValueError(f'A {pl.i("trainer")} is required')
-        if not hasattr(trainer, 'with_tqdm'):
+        if trainer is not None and not hasattr(trainer, 'with_tqdm'):
             raise ValueError(f'Trainer ill-formed: A custom {pl.i("with_tqdm")} field is needed')
         self.trainer = trainer
-        self.prettier = prettier
+        self.pbar = pbar
+        assert (trainer or pbar) and not (trainer and pbar)  # sanity check exclusive
+
+        self.prettier = prettier or MlPrettier()
         self.logger = logger
         self.file_logger = file_logger
         self.tb_writer = tb_writer
@@ -633,8 +634,11 @@ class LogStep:
                 if self._should_add(k):
                     self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
 
-        if self.trainer.with_tqdm:  # a custom field I added
-            pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
+        if (self.trainer is not None and self.trainer.with_tqdm) or self.pbar is not None:  # a custom field I added
+            if self.pbar is not None:
+                pbar = self.pbar
+            else:
+                pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
             if pbar:
                 tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
