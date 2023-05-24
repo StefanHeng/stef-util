@@ -493,6 +493,8 @@ class MlPrettier:
                 return _single(val)
         elif 'learning_rate' in key or 'lr' in key:
             return f'{round(val, 7):.3e}'
+        elif 'perplexity' or 'ppl' in key:
+            return f'{round(val, 2):.2f}'
         else:
             return val
 
@@ -626,7 +628,10 @@ class LogStep:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
 
     def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True):
-        training = training or self.trainer.model.training
+        if training is not None:
+            training = training
+        else:
+            training = self.trainer.model.training
         d_log_write = self.prettier(d_log) if self.prettier else d_log
 
         if self.tb_writer:
