@@ -612,8 +612,10 @@ class LogStep:
         if trainer is not None and not hasattr(trainer, 'with_tqdm'):
             raise ValueError(f'Trainer ill-formed: A custom {pl.i("with_tqdm")} field is needed')
         self.trainer = trainer
-        self.pbar = pbar
-        assert (trainer or pbar) and not (trainer and pbar)  # sanity check exclusive
+        if trainer:
+            assert not pbar  # sanity check
+        else:
+            self.pbar = pbar
 
         self.prettier = prettier or MlPrettier()
         self.logger = logger
