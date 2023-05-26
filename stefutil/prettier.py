@@ -426,6 +426,28 @@ def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> loggin
     return logger
 
 
+class Timer:
+    """
+    Counts elapsed time and report in a pretty format
+
+    Intended for logging ML train/test progress
+    """
+    def __init__(self, start: bool = True):
+        self.time_start, self.time_end = None, None
+        if start:
+            self.start()
+
+    def start(self):
+        self.time_start = datetime.datetime.now()
+
+    def end(self):
+        if self.time_start is None:
+            raise ValueError('Counter not started')
+
+        self.time_end = datetime.datetime.now()
+        return fmt_delta(self.time_end - self.time_start)
+
+
 class MlPrettier:
     """
     My utilities for deep learning training logging
