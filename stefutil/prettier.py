@@ -33,6 +33,7 @@ __all__ = [
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
+    'Timer',
     'CheckArg', 'ca',
     'now',
     'MlPrettier', 'MyProgressCallback', 'LogStep'
