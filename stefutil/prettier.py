@@ -445,6 +445,8 @@ class Timer:
         if self.time_start is None:
             raise ValueError('Counter not started')
 
+        if self.time_end is not None:
+            raise ValueError('Counter already ended')
         self.time_end = datetime.datetime.now()
         return fmt_delta(self.time_end - self.time_start)
 
