@@ -733,16 +733,19 @@ ca.cache_mismatch(  # See `stefutil::plot.py`
 )
 
 
-def now(as_str=True, for_path=False, fmt: str = 'full') -> Union[datetime.datetime, str]:
+def now(as_str=True, for_path=False, fmt: str = 'full', color: bool = False) -> Union[datetime.datetime, str]:
     """
     # Considering file output path
     :param as_str: If true, returns string; otherwise, returns datetime object
     :param for_path: If true, the string returned is formatted as intended for file system path
         relevant only when as_str is True
+    :param color: If true, the string returned is colored
+        Intended for terminal logging
     :param fmt: One of [`full`, `date`, `short-date`]
         relevant only when as_str is True
     """
     d = datetime.datetime.now()
+
     if as_str:
         ca.check_mismatch('Date Format', fmt, ['full', 'date', 'short-date'])
         if fmt == 'full':
@@ -750,8 +753,17 @@ def now(as_str=True, for_path=False, fmt: str = 'full') -> Union[datetime.dateti
         else:
             fmt_tm = '%Y-%m-%d'
         ret = d.strftime(fmt_tm)
+
         if fmt == 'short-date':  # year in 2-digits
             ret = ret[2:]
+
+        if color:
+            # split the string on separation chars and join w/ the colored numbers
+            nums = [pl.i(num) for num in re.split(r'[\s\-:.]', ret)]
+            puncs = re.findall(r'[\s\-:.]', ret)
+            assert len(nums) == len(puncs) + 1
+            ret = ''.join([n + p for n, p in zip(nums, puncs)]) + nums[-1]
+            return ret
         return ret
     else:
         return d
@@ -808,7 +820,7 @@ if __name__ == '__main__':
         ca_(test='a')
         ca_(test=None)
         ca_.check_mismatch('Blah', None, ['hah', 'does not matter'])
-    check_ca_warn()
+    # check_ca_warn()
 
     def check_time_delta():
         import datetime
@@ -829,4 +841,10 @@ if __name__ == '__main__':
 
     def check_ordinal():
         mic([ordinal(n) for n in range(1, 32)])
-    check_ordinal()
+    # check_ordinal()
+
+    def check_color_now():
+        print(now(color=True, fmt='short-date'))
+        print(now(color=True, for_path=True))
+        print(now(color=True))
+    check_color_now()
