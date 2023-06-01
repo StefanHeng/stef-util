@@ -759,8 +759,8 @@ def now(as_str=True, for_path=False, fmt: str = 'full', color: bool = False) -> 
 
         if color:
             # split the string on separation chars and join w/ the colored numbers
-            nums = [pl.i(num) for num in re.split(r'[\s\-:.]', ret)]
-            puncs = re.findall(r'[\s\-:.]', ret)
+            nums = [pl.i(num) for num in re.split(r'[\s\-:._]', ret)]
+            puncs = re.findall(r'[\s\-:._]', ret)
             assert len(nums) == len(puncs) + 1
             ret = ''.join([n + p for n, p in zip(nums, puncs)]) + nums[-1]
             return ret
