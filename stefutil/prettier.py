@@ -634,11 +634,17 @@ class LogStep:
     def __init__(
             self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
             logger: logging.Logger = None, file_logger: logging.Logger = None,
-            tb_writer: SummaryWriter = None
+            tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True
     ):
-        if trainer is not None and not hasattr(trainer, 'with_tqdm'):
-            raise ValueError(f'Trainer ill-formed: A custom {pl.i("with_tqdm")} field is needed')
         self.trainer = trainer
+        self.trainer_with_tqdm = False
+        if trainer is not None:
+            if hasattr(trainer, 'with_tqdm'):
+                self.trainer_with_tqdm = trainer.with_tqdm
+            else:
+                self.trainer_with_tqdm = trainer_with_tqdm
+
+        self.pbar = None
         if trainer:
             assert not pbar  # sanity check
         else:
@@ -666,7 +672,7 @@ class LogStep:
                 if self._should_add(k):
                     self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
 
-        if (self.trainer is not None and self.trainer.with_tqdm) or self.pbar is not None:  # a custom field I added
+        if (self.trainer is not None and self.trainer_with_tqdm) or self.pbar is not None:  # a custom field I added
             if self.pbar is not None:
                 pbar = self.pbar
             else:
