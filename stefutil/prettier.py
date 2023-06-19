@@ -739,7 +739,9 @@ ca.cache_mismatch(  # See `stefutil::plot.py`
 )
 
 
-def now(as_str=True, for_path=False, fmt: str = 'full', color: bool = False) -> Union[datetime.datetime, str]:
+def now(
+        as_str=True, for_path=False, fmt: str = 'full', color: Union[bool, str] = False
+) -> Union[datetime.datetime, str]:
     """
     # Considering file output path
     :param as_str: If true, returns string; otherwise, returns datetime object
@@ -747,6 +749,7 @@ def now(as_str=True, for_path=False, fmt: str = 'full', color: bool = False) -> 
         relevant only when as_str is True
     :param color: If true, the string returned is colored
         Intended for terminal logging
+        If a string is passed in, the color is applied to the string following `PrettyLogger` convention
     :param fmt: One of [`full`, `date`, `short-date`]
         relevant only when as_str is True
     """
@@ -765,7 +768,8 @@ def now(as_str=True, for_path=False, fmt: str = 'full', color: bool = False) -> 
 
         if color:
             # split the string on separation chars and join w/ the colored numbers
-            nums = [pl.i(num) for num in re.split(r'[\s\-:._]', ret)]
+            c = color if isinstance(color, str) else 'green'
+            nums = [pl.s(num, c=c) for num in re.split(r'[\s\-:._]', ret)]
             puncs = re.findall(r'[\s\-:._]', ret)
             assert len(nums) == len(puncs) + 1
             ret = ''.join([n + p for n, p in zip(nums, puncs)]) + nums[-1]
@@ -853,4 +857,6 @@ if __name__ == '__main__':
         print(now(color=True, fmt='short-date'))
         print(now(color=True, for_path=True))
         print(now(color=True))
+        print(now(color='g'))
+        print(now(color='b'))
     check_color_now()
