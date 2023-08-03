@@ -244,7 +244,7 @@ class PrettyLogger:
     @staticmethod
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: bool = False,
-            omit_none_val: bool = True, **kwargs
+            omit_none_val: bool = False, **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
@@ -868,4 +868,5 @@ if __name__ == '__main__':
         d = dict(a=1, b=None, c=3)
         print(pl.pa(d))
         print(pl.pa(d, omit_none_val=False))
+        print(pl.pa(d, omit_none_val=True))
     check_omit_none()
