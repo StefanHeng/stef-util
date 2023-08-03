@@ -242,7 +242,10 @@ class PrettyLogger:
         return PrettyLogger._iter(tpl, with_color=with_color, pref='(', post=')')
 
     @staticmethod
-    def _dict(d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: bool = False, **kwargs) -> str:
+    def _dict(
+            d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: bool = False,
+            omit_none_val: bool = True, **kwargs
+    ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
         """
@@ -267,7 +270,7 @@ class PrettyLogger:
             sep = '='
         if with_color:
             sep = PrettyLogger.s(sep, c='m')
-        pairs = (f'{k}{sep}{_log_val(v)}' for k, v in d.items())
+        pairs = ((k if (omit_none_val and v is None) else f'{k}{sep}{_log_val(v)}') for k, v in d.items())
         pref, post = '{', '}'
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
@@ -859,4 +862,10 @@ if __name__ == '__main__':
         print(now(color=True))
         print(now(color='g'))
         print(now(color='b'))
-    check_color_now()
+    # check_color_now()
+
+    def check_omit_none():
+        d = dict(a=1, b=None, c=3)
+        print(pl.pa(d))
+        print(pl.pa(d, omit_none_val=False))
+    check_omit_none()
