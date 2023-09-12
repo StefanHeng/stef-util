@@ -32,7 +32,7 @@ __all__ = [
     'MyIceCreamDebugger', 'mic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'get_logger',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'get_logger',
     'Timer',
     'CheckArg', 'ca',
     'now',
@@ -329,7 +329,7 @@ class MyTheme:
         """
         Sets the class attribute accordingly
 
-        :param t: One of ['rgb`, `sty`]
+        :param t: One of [`rgb`, `sty`]
             If `rgb`: 3-tuple of rgb values
             If `sty`: String for terminal styling prefix
         """
@@ -406,26 +406,71 @@ class MyFormatter(logging.Formatter):
         return self.formatter[entry.levelno].format(entry)
 
 
-def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> logging.Logger:
+# credit: https://stackoverflow.com/a/14693789/10732321
+_ansi_escape = re.compile(r'''
+    \x1B  # ESC
+    (?:   # 7-bit C1 Fe (except CSI)
+        [@-Z\\-_]
+    |     # or [ for CSI, followed by a control sequence
+        \[
+        [0-?]*  # Parameter bytes
+        [ -/]*  # Intermediate bytes
+        [@-~]   # Final byte
+    )
+''', re.VERBOSE)
+
+
+def _filter_ansi(txt: str) -> str:
     """
-    :param name: Name of the logger
-    :param kind: Logger type, one of [`stdout`, `file-write`]
-    :param file_path: File path for file-write logging
+    Removes ANSI escape sequences from the string
     """
-    assert kind in ['stdout', 'file-write']
-    logger = logging.getLogger(f'{name} file write' if kind == 'file-write' else name)
-    logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
-    logger.setLevel(logging.DEBUG)
+    return _ansi_escape.sub('', txt)
+
+
+class CleanAnsiFileHandler(logging.FileHandler):
+    """
+    Removes ANSI escape sequences from log file as they are not supported by most text editors
+    """
+    def emit(self, record):
+        record.msg = _filter_ansi(record.msg)
+        super().emit(record)
+
+
+def get_handler(kind: str, file_path: str = None) -> Union[logging.Handler, List[logging.Handler]]:
+    if kind == 'both':
+        return [get_handler(kind='stdout'), get_handler(kind='file-write', file_path=file_path)]
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
     else:  # `file-write`
         if not file_path:
             raise ValueError(f'{pl.i(file_path)} must be specified for {pl.i("file-write")} logging')
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        handler = logging.FileHandler(file_path)
+
+        dnm = os.path.dirname(file_path)
+        if dnm and not os.path.exists(dnm):
+            os.makedirs(dnm, exist_ok=True)
+        handler = CleanAnsiFileHandler(file_path)
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
-    logger.addHandler(handler)
+    return handler
+
+
+def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> logging.Logger:
+    """
+    :param name: Name of the logger
+    :param kind: Logger type, one of [`stdout`, `file-write`, `both`]
+        `both` intended for writing to terminal with color and *then* removing styles for file-write
+    :param file_path: File path for file-write logging
+    """
+    assert kind in ['stdout', 'file-write', 'both']
+    logger = logging.getLogger(f'{name} file write' if kind == 'file-write' else name)
+    logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
+    logger.setLevel(logging.DEBUG)
+
+    handlers = get_handler(kind=kind, file_path=file_path)
+    if not isinstance(handlers, list):
+        handlers = [handlers]
+    for handler in handlers:
+        logger.addHandler(handler)
     logger.propagate = False
     return logger
 
@@ -869,4 +914,12 @@ if __name__ == '__main__':
         print(pl.pa(d))
         print(pl.pa(d, omit_none_val=False))
         print(pl.pa(d, omit_none_val=True))
-    check_omit_none()
+    # check_omit_none()
+
+    def check_both_handler():
+        # logger = get_logger('test-both', kind='stdout')
+        logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
+        d_log = dict(a=1, b=2, c='test')
+        logger.info(pl.i(d_log))
+    check_both_handler()
+
