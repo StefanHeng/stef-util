@@ -32,7 +32,7 @@ __all__ = [
     'MyIceCreamDebugger', 'mic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'get_logger',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'get_logging_handler', 'get_logger', 'add_file_handler',
     'Timer',
     'CheckArg', 'ca',
     'now',
@@ -436,9 +436,9 @@ class CleanAnsiFileHandler(logging.FileHandler):
         super().emit(record)
 
 
-def get_handler(kind: str, file_path: str = None) -> Union[logging.Handler, List[logging.Handler]]:
+def get_logging_handler(kind: str, file_path: str = None) -> Union[logging.Handler, List[logging.Handler]]:
     if kind == 'both':
-        return [get_handler(kind='stdout'), get_handler(kind='file-write', file_path=file_path)]
+        return [get_logging_handler(kind='stdout'), get_logging_handler(kind='file-write', file_path=file_path)]
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
     else:  # `file-write`
@@ -466,12 +466,27 @@ def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> loggin
     logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
     logger.setLevel(logging.DEBUG)
 
-    handlers = get_handler(kind=kind, file_path=file_path)
+    handlers = get_logging_handler(kind=kind, file_path=file_path)
     if not isinstance(handlers, list):
         handlers = [handlers]
     for handler in handlers:
         logger.addHandler(handler)
     logger.propagate = False
+    return logger
+
+
+def add_file_handler(logger: logging.Logger, file_path: str):
+    """
+    Adds a file handler to the logger
+
+    Removes prior all `FileHandler`s if exists
+    """
+    handler = get_logging_handler(kind='file-write', file_path=file_path)
+    for h in logger.handlers:
+        if isinstance(h, logging.FileHandler):
+            logger.removeHandler(h)
+            logger.info(f'Prior Handler {pl.i(h)} removed')
+    logger.addHandler(handler)
     return logger
 
 
@@ -917,6 +932,8 @@ if __name__ == '__main__':
     # check_omit_none()
 
     def check_both_handler():
+        mic('now creating handler')
+        print('now creating')
         # logger = get_logger('test-both', kind='stdout')
         logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
         d_log = dict(a=1, b=2, c='test')
