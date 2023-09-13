@@ -518,7 +518,7 @@ class MlPrettier:
     """
     My utilities for deep learning training logging
     """
-    no_prefix = ('epoch', 'step', 'global_step')
+    no_prefix = ('epoch', 'global_step', 'step')  # order matters, see `single`
 
     def __init__(
             self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix,
