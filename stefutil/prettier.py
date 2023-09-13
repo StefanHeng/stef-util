@@ -518,7 +518,7 @@ class MlPrettier:
     """
     My utilities for deep learning training logging
     """
-    no_prefix = ('epoch', 'step')
+    no_prefix = ('epoch', 'step', 'global_step')
 
     def __init__(
             self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix,
@@ -553,7 +553,7 @@ class MlPrettier:
         """
         `val` processing is infered based on key
         """
-        if key in ['step', 'epoch']:
+        if key in MlPrettier.no_prefix:
             k = next(iter(k for k in self.ref.keys() if key in k))
             lim = self.ref[k]
             assert isinstance(val, (int, float))
@@ -726,13 +726,14 @@ class LogStep:
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
 
-    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None):
+    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None, prefix: str = None):
         """
         :param d_log: Dict to log
         :param training: Whether `d_log` is for training or evaluation
         :param to_console: Whether to log to console
         :param split: If specified, one of [`train`, `eval`, `test`]
             Overrides `training`
+        :param prefix: If specified, prefix is inserted before the log
         """
         if split is None:
             if training is not None:
