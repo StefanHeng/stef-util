@@ -531,7 +531,7 @@ class MlPrettier:
             Will be logged in [0, 100]
         """
         self.ref = ref
-        self.metric_keys = metric_keys or ['acc', 'recall', 'auc']
+        self.metric_keys = metric_keys or ['acc', 'precision', 'recall', 'f1', 'auc']
         self.no_prefix = no_prefix
         self.with_color = with_color
 
@@ -962,5 +962,11 @@ if __name__ == '__main__':
         logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
         d_log = dict(a=1, b=2, c='test')
         logger.info(pl.i(d_log))
-    check_both_handler()
+    # check_both_handler()
+
+    def check_prettier():
+        mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
+        mic(mp.single(key='global_step', val=4))
+        mic(mp.single(key='step', val=2))
+    check_prettier()
 
