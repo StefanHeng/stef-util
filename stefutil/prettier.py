@@ -769,10 +769,16 @@ class LogStep:
                 d = d_log_p if self.prettier_console else d_log
                 if self.console_with_prefix:
                     d = self.prettier.add_split_prefix(d, split=split_str)
-                self.logger.info(pl.i(d))
+                msg = pl.i(d)
+                if prefix:
+                    msg = f'{prefix}{msg}'
+                self.logger.info(msg)
 
         if self.file_logger:
-            self.file_logger.info(pl.nc(d_log))
+            msg = pl.nc(d_log)
+            if prefix:
+                msg = f'{prefix}{msg}'
+            self.file_logger.info(msg)
 
 
 class CheckArg:
