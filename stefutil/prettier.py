@@ -698,7 +698,7 @@ class LogStep:
             self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
             logger: logging.Logger = None, file_logger: logging.Logger = None,
             tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True,
-            global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_prefix: bool = False
+            global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_split: bool = False
     ):
         self.trainer = trainer
         self.trainer_with_tqdm = False
@@ -721,7 +721,7 @@ class LogStep:
 
         self.global_step_with_epoch = global_step_with_epoch
         self.prettier_console = prettier_console
-        self.console_with_split = console_with_prefix
+        self.console_with_split = console_with_split
 
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
@@ -742,7 +742,7 @@ class LogStep:
                 training = self.trainer.model.training
             split_str = 'train' if training else 'eval'
         else:
-            ca.check_mismatch('Train Mode', split, ['train', 'eval', 'test'])
+            ca.check_mismatch('Train Mode', split, ['train', 'eval', 'dev', 'test'])
             training = split == 'train'
             split_str = split
         d_log_p = self.prettier(d_log) if self.prettier else d_log
