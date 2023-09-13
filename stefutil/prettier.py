@@ -697,7 +697,8 @@ class LogStep:
     def __init__(
             self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
             logger: logging.Logger = None, file_logger: logging.Logger = None,
-            tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True
+            tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True,
+            global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_prefix: bool = False
     ):
         self.trainer = trainer
         self.trainer_with_tqdm = False
@@ -718,22 +719,41 @@ class LogStep:
         self.file_logger = file_logger
         self.tb_writer = tb_writer
 
+        self.global_step_with_epoch = global_step_with_epoch
+        self.prettier_console = prettier_console
+        self.console_with_prefix = console_with_prefix
+
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
 
-    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True):
-        if training is not None:
-            training = training
+    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None):
+        """
+        :param d_log: Dict to log
+        :param training: Whether `d_log` is for training or evaluation
+        :param to_console: Whether to log to console
+        :param split: If specified, one of [`train`, `eval`, `test`]
+            Overrides `training`
+        """
+        if split is None:
+            if training is not None:
+                training = training
+            else:
+                training = self.trainer.model.training
+            split_str = 'train' if training else 'eval'
         else:
-            training = self.trainer.model.training
-        d_log_write = self.prettier(d_log) if self.prettier else d_log
+            ca.check_mismatch('Train Mode', split, ['train', 'eval', 'test'])
+            training = split == 'train'
+            split_str = split
+        d_log_p = self.prettier(d_log) if self.prettier else d_log
 
         if self.tb_writer:
-            tb_step = d_log.get('step') if training else d_log.get('epoch')
-            pref = 'train' if training else 'eval'
+            if self.global_step_with_epoch:
+                tb_step = d_log.get('step') if training else d_log.get('epoch')
+            else:
+                tb_step = d_log.get('step')
             for k, v in d_log.items():
                 if self._should_add(k):
-                    self.tb_writer.add_scalar(tag=f'{pref}/{k}', scalar_value=v, global_step=tb_step)
+                    self.tb_writer.add_scalar(tag=f'{split_str}/{k}', scalar_value=v, global_step=tb_step)
 
         if (self.trainer is not None and self.trainer_with_tqdm) or self.pbar is not None:  # a custom field I added
             if self.pbar is not None:
@@ -741,11 +761,14 @@ class LogStep:
             else:
                 pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
             if pbar:
-                tqdm_kws = {k: pl.i(v) for k, v in d_log_write.items() if self._should_add(k)}
+                tqdm_kws = {k: pl.i(v) for k, v in d_log_p.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
         if to_console:
             if self.logger:
-                self.logger.info(pl.i(d_log))
+                d = d_log_p if self.prettier_console else d_log
+                if self.console_with_prefix:
+                    d = self.prettier.add_split_prefix(d, split=split_str)
+                self.logger.info(pl.i(d))
 
         if self.file_logger:
             self.file_logger.info(pl.nc(d_log))
