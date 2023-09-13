@@ -721,7 +721,7 @@ class LogStep:
 
         self.global_step_with_epoch = global_step_with_epoch
         self.prettier_console = prettier_console
-        self.console_with_prefix = console_with_prefix
+        self.console_with_split = console_with_prefix
 
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
@@ -767,7 +767,7 @@ class LogStep:
         if to_console:
             if self.logger:
                 d = d_log_p if self.prettier_console else d_log
-                if self.console_with_prefix:
+                if self.console_with_split and split_str:
                     d = self.prettier.add_split_prefix(d, split=split_str)
                 msg = pl.i(d)
                 if prefix:
