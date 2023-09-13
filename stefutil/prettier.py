@@ -749,9 +749,9 @@ class LogStep:
 
         if self.tb_writer:
             if self.global_step_with_epoch:
-                tb_step = d_log.get('step') if training else d_log.get('epoch')
+                tb_step = d_log['step'] if training else d_log['epoch']
             else:
-                tb_step = d_log.get('step')
+                tb_step = d_log.get('global_step', None) or d_log['step']  # at least one of them must exist
             for k, v in d_log.items():
                 if self._should_add(k):
                     self.tb_writer.add_scalar(tag=f'{split_str}/{k}', scalar_value=v, global_step=tb_step)
