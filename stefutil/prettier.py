@@ -201,9 +201,10 @@ class PrettyLogger:
             return PrettyLogger.s(s, **kwargs_)
 
     @staticmethod
-    def pa(s, **kwargs):
+    def pa(s, shorter_bool: bool = True, **kwargs):
         assert isinstance(s, dict)
-        return PrettyLogger.i(s, for_path=True, with_color=False, **kwargs)
+        fp = 'shorter-bool' if shorter_bool else True
+        return PrettyLogger.i(s, for_path=fp, with_color=False, **kwargs)
 
     @staticmethod
     def nc(s, **kwargs):
@@ -243,7 +244,7 @@ class PrettyLogger:
 
     @staticmethod
     def _dict(
-            d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: bool = False,
+            d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: Union[bool, str] = False,
             omit_none_val: bool = False, **kwargs
     ) -> str:
         """
@@ -253,7 +254,9 @@ class PrettyLogger:
             if isinstance(v, (dict, list, tuple)):
                 return PrettyLogger.i(v, with_color=with_color)
             else:
-                if is_float(v):  # Pad only normal, expected floats, intended for metric logging
+                if for_path == 'shorter-bool' and isinstance(v, bool):
+                    return 'T' if v else 'F'
+                elif is_float(v):  # Pad only normal, expected floats, intended for metric logging
                     if is_float(v, no_int=True, no_sci=True):
                         v = float(v)
                         if with_color:
@@ -974,5 +977,10 @@ if __name__ == '__main__':
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
         mic(mp.single(key='global_step', val=4))
         mic(mp.single(key='step', val=2))
-    check_prettier()
+    # check_prettier()
 
+    def check_pa_bool():
+        d = dict(a=1, b=True, c='hell')
+        mic(pl.pa(d))
+        mic(pl.pa(d, shorter_bool=False))
+    check_pa_bool()
