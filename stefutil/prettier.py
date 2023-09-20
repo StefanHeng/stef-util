@@ -204,6 +204,8 @@ class PrettyLogger:
     def pa(s, shorter_bool: bool = True, **kwargs):
         assert isinstance(s, dict)
         fp = 'shorter-bool' if shorter_bool else True
+        kwargs = kwargs or dict()
+        kwargs['pairs_sep'] = ','  # remove whitespace to save LINUX file path escaping
         return PrettyLogger.i(s, for_path=fp, with_color=False, **kwargs)
 
     @staticmethod
@@ -244,7 +246,8 @@ class PrettyLogger:
 
     @staticmethod
     def _dict(
-            d: Dict = None, with_color=True, pad_float: int = 5, sep=': ', for_path: Union[bool, str] = False,
+            d: Dict = None, with_color=True, pad_float: int = 5, key_value_sep: str = ': ', pairs_sep: str = ', ',
+            for_path: Union[bool, str] = False,
             omit_none_val: bool = False, **kwargs
     ) -> str:
         """
@@ -270,14 +273,14 @@ class PrettyLogger:
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
-            sep = '='
+            key_value_sep = '='
         if with_color:
-            sep = PrettyLogger.s(sep, c='m')
-        pairs = ((k if (omit_none_val and v is None) else f'{k}{sep}{_log_val(v)}') for k, v in d.items())
+            key_value_sep = PrettyLogger.s(key_value_sep, c='m')
+        pairs = ((k if (omit_none_val and v is None) else f'{k}{key_value_sep}{_log_val(v)}') for k, v in d.items())
         pref, post = '{', '}'
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
-        return pref + ', '.join(pairs) + post
+        return pref + pairs_sep.join(pairs) + post
 
 
 pl = PrettyLogger()
