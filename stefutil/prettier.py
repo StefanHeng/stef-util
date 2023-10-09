@@ -255,7 +255,10 @@ class PrettyLogger:
         """
         def _log_val(v):
             if isinstance(v, (dict, list, tuple)):
-                return PrettyLogger.i(v, with_color=with_color)
+                return PrettyLogger.i(
+                    v, with_color=with_color, pad_float=pad_float, key_value_sep=key_value_sep,
+                    pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val, **kwargs
+                )
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -983,7 +986,14 @@ if __name__ == '__main__':
     # check_prettier()
 
     def check_pa_bool():
-        d = dict(a=1, b=True, c='hell')
+        d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'))
         mic(pl.pa(d))
         mic(pl.pa(d, shorter_bool=False))
     check_pa_bool()
+
+    def check_log_i():
+        d = dict(a=1, b=True, c='hell')
+        d = ['asd', 'hel', 'sada']
+        print(pl.i(d))
+        print(pl.i(d, with_color=False))
+    # check_log_i()
