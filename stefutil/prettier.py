@@ -254,11 +254,13 @@ class PrettyLogger:
         Syntactic sugar for logging dict with coloring for console output
         """
         def _log_val(v):
-            if isinstance(v, (dict, list, tuple)):
+            if isinstance(v, dict):
                 return PrettyLogger.i(
                     v, with_color=with_color, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val, **kwargs
                 )
+            elif isinstance(v, (list, tuple)):
+                return PrettyLogger.i(v, with_color=with_color)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
