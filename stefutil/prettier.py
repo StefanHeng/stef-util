@@ -230,19 +230,20 @@ class PrettyLogger:
         return highlight(PrettyLogger.id(s), lexers.JsonLexer(), formatters.TerminalFormatter())
 
     @staticmethod
-    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']'):
+    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']', for_path: bool = False):
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
         lst = [PrettyLogger.i(e, with_color=with_color) for e in it]
-        return f'{pref}{", ".join(lst)}{post}'
+        sep = ',' if for_path else ', '
+        return f'{pref}{sep.join(lst)}{post}'
 
     @staticmethod
-    def _list(lst: List, with_color=True):
-        return PrettyLogger._iter(lst, with_color=with_color, pref='[', post=']')
+    def _list(lst: List, with_color=True, for_path: bool = False):
+        return PrettyLogger._iter(lst, with_color=with_color, pref='[', post=']', for_path=for_path)
 
     @staticmethod
-    def _tuple(tpl: Tuple, with_color=True):
-        return PrettyLogger._iter(tpl, with_color=with_color, pref='(', post=')')
+    def _tuple(tpl: Tuple, with_color=True, for_path: bool = False):
+        return PrettyLogger._iter(tpl, with_color=with_color, pref='(', post=')', for_path=for_path)
 
     @staticmethod
     def _dict(
@@ -260,7 +261,7 @@ class PrettyLogger:
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
-                return PrettyLogger.i(v, with_color=with_color)
+                return PrettyLogger.i(v, with_color=with_color, for_path=for_path)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -987,11 +988,11 @@ if __name__ == '__main__':
         mic(mp.single(key='step', val=2))
     # check_prettier()
 
-    def check_pa_bool():
-        d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'))
+    def check_pa():
+        d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
         mic(pl.pa(d))
         mic(pl.pa(d, shorter_bool=False))
-    check_pa_bool()
+    check_pa()
 
     def check_log_i():
         d = dict(a=1, b=True, c='hell')
