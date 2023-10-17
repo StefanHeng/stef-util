@@ -247,7 +247,7 @@ class PrettyLogger:
 
     @staticmethod
     def _dict(
-            d: Dict = None, with_color=True, pad_float: int = 5, key_value_sep: str = ': ', pairs_sep: str = ', ',
+            d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False,
             omit_none_val: bool = False, **kwargs
     ) -> str:
@@ -265,7 +265,9 @@ class PrettyLogger:
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
-                elif is_float(v):  # Pad only normal, expected floats, intended for metric logging
+                # Pad only normal, expected floats, intended for metric logging
+                #   suggest 5 for 2 decimal point percentages
+                elif is_float(v) and pad_float:
                     if is_float(v, no_int=True, no_sci=True):
                         v = float(v)
                         if with_color:
@@ -861,14 +863,14 @@ def now(
     d = datetime.datetime.now()
 
     if as_str:
-        ca.check_mismatch('Date Format', fmt, ['full', 'date', 'short-date'])
+        ca.check_mismatch('Date Format', fmt, ['full', 'short-full', 'date', 'short-date'])
         if fmt == 'full':
             fmt_tm = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S.%f'
         else:
             fmt_tm = '%Y-%m-%d'
         ret = d.strftime(fmt_tm)
 
-        if fmt == 'short-date':  # year in 2-digits
+        if 'short' in fmt:  # year in 2-digits
             ret = ret[2:]
 
         if color:
@@ -991,8 +993,9 @@ if __name__ == '__main__':
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
         mic(pl.pa(d))
+        mic(pl.pa(d, ))
         mic(pl.pa(d, shorter_bool=False))
-    check_pa()
+    # check_pa()
 
     def check_log_i():
         d = dict(a=1, b=True, c='hell')
@@ -1000,3 +1003,10 @@ if __name__ == '__main__':
         print(pl.i(d))
         print(pl.i(d, with_color=False))
     # check_log_i()
+
+    def check_log_i_float_pad():
+        d = {'location': 90.6, 'miscellaneous': 35.0, 'organization': 54.2, 'person': 58.7}
+        mic(d)
+        print(pl.i(d))
+        print(pl.i(d, pad_float=False))
+    check_log_i_float_pad()
