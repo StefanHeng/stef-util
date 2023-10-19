@@ -864,7 +864,7 @@ def now(
 
     if as_str:
         ca.check_mismatch('Date Format', fmt, ['full', 'short-full', 'date', 'short-date'])
-        if fmt == 'full':
+        if 'full' in fmt:
             fmt_tm = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S.%f'
         else:
             fmt_tm = '%Y-%m-%d'
@@ -1009,4 +1009,11 @@ if __name__ == '__main__':
         mic(d)
         print(pl.i(d))
         print(pl.i(d, pad_float=False))
-    check_log_i_float_pad()
+    # check_log_i_float_pad()
+
+    def check_now():
+        mic(now(for_path=True, fmt='short-date'))
+        mic(now(for_path=True, fmt='date'))
+        mic(now(for_path=True, fmt='full'))
+        mic(now(for_path=True, fmt='short-full'))
+    check_now()
