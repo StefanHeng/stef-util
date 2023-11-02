@@ -30,6 +30,14 @@ ori = 'v'
 ca(bar_orient=ori)
 ```
 
+For the `nlp` module which uses `spaCy`, run 
+
+```bash
+python -m spacy download en_core_web_sm
+```
+
+first. 
+
 
 
 ## Highlights
@@ -82,6 +90,8 @@ for step in training_or_eval_steps:
     logger.info(pl.i(logs))
     file_logger.info(pl.nc(logs))
 ```
+
+
 
 
 

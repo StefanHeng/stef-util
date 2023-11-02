@@ -1,13 +1,29 @@
+import re
+from typing import List
+
+import numpy as np
 import spacy
 from tqdm import tqdm
 
-from .prettier import get_logger, ca
+from stefutil.prettier import get_logger, ca, pl
 
 
-__all__ = ['TextPreprocessor']
+__all__ = ['doc2tokens', 'TextPreprocessor']
 
 
 _logger = get_logger(__name__)
+
+
+# _pattern_space = re.compile(r'\s+')  # match one or more whitespace
+_pattern_term = re.compile(r'\w+|[^\s\w]+')  # match one or more alphanumeric or non-whitespace-non-alphanumeric
+
+
+def doc2tokens(sentence: str) -> List[str]:
+    """
+    Split sentence into tokens, split on any punctuation or whitespace
+        e.g. `SOCCER-JAPAN` => [`SOCCER`, `-`, `JAPAN`]
+    """
+    return _pattern_term.findall(sentence)
 
 
 class TextPreprocessor:
@@ -45,8 +61,8 @@ class TextPreprocessor:
             TextPreprocessor.nlp = self.nlp = spacy.load('en_core_web_sm')
         else:
             self.nlp = TextPreprocessor.nlp
-        self.nlp.add_pipe("merge_entities")
-        self.nlp.add_pipe("merge_noun_chunks")
+        # self.nlp.add_pipe("merge_entities")
+        # self.nlp.add_pipe("merge_noun_chunks")
         self.drop_tags = drop_tags
         self.verbose = verbose
 
@@ -57,7 +73,7 @@ class TextPreprocessor:
         return ret
 
     def __call__(self, texts: List[str]) -> List[List[str]]:
-        avg_tok_len = round(np.mean([len(sentence2tokens(sent)) for sent in texts]), 2)
+        avg_tok_len = round(np.mean([len(doc2tokens(sent)) for sent in texts]), 2)
         ret = []
         it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', total=len(texts))
         for doc in it:
@@ -66,11 +82,23 @@ class TextPreprocessor:
             if self.tokenize_scheme == 'chunk':
                 toks = [chunk.text for chunk in doc.noun_chunks]
             else:  # `word`, `2-gram`
+                mic([self.keep_token(t) for t in doc])
                 toks = [tok.lemma_.lower() for tok in doc if self.keep_token(tok)]
                 if self.tokenize_scheme == '2-gram':
                     toks = [' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)]
+            it.set_postfix(tok_len=pl.i(len(toks)))
             ret.append(toks)
         avg_tok_len_ = round(np.mean([len(toks) for toks in ret]), 2)
         if self.verbose:
             _logger.info(f'Preprocessing finished w/ average token length {pl.i(avg_tok_len)} => {pl.i(avg_tok_len_)}')
         return ret
+
+
+if __name__ == '__main__':
+    from stefutil.prettier import mic
+
+    def check_process():
+        docs = ['hello world', 'japan-soccer.']
+        lst_toks = TextPreprocessor()(docs)
+        mic(lst_toks)
+    check_process()
