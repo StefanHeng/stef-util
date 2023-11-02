@@ -7,4 +7,5 @@ from .concurrency import *
 from .function import *
 from .plot import *
 from .ml import *
+from .nlp import *
 from .project import *
