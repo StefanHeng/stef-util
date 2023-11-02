@@ -44,7 +44,7 @@ class StefUtil:
 
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
-            dataset_dir: str = None, model_dir: str = None
+            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False
     ):
         """
         :param base_path: Absolute system path for root directory that contains a project folder & a data folder
@@ -52,20 +52,25 @@ class StefUtil:
         :param package_name: python package/Module name which contain main source files
         :param dataset_dir: Directory name that contains datasets
         :param model_dir: Directory name that contains trained models
+        :param within_proj: If true, model and dataset directories are under project directory
         """
         self.base_path = base_path
         self.proj_dir = project_dir
         self.pkg_nm = package_name
         self.dset_dir = dataset_dir
         self.model_dir = model_dir
+        self.within_proj = within_proj
 
         self.proj_path = os_join(self.base_path, self.proj_dir)
-        self.dset_path = os_join(self.base_path, self.dset_dir)
-        self.model_path = os_join(self.base_path, self.model_dir)
+        base_path = self.proj_path if within_proj else self.base_path
+        self.dset_path = os_join(base_path, self.dset_dir)
+        self.model_path = os_join(base_path, self.model_dir)
+
         self.plot_path = os_join(self.base_path, self.proj_dir, StefUtil.plot_dir)
         self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
-        os.makedirs(self.plot_path, exist_ok=True)
-        os.makedirs(self.eval_path, exist_ok=True)
+
+        for path in [self.dset_path, self.model_path, self.plot_path, self.eval_path]:
+            os.makedirs(path, exist_ok=True)
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
