@@ -1,8 +1,9 @@
 import re
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import spacy
+from spacy.tokens import Doc
 from tqdm import tqdm
 
 from stefutil.prettier import get_logger, ca, pl
@@ -73,18 +74,12 @@ class TextPreprocessor:
         return ret
 
     def __call__(self, texts: List[str]) -> List[List[str]]:
+        assert isinstance(texts, list) and len(texts) > 0
         avg_tok_len = round(np.mean([len(doc2tokens(sent)) for sent in texts]), 2)
         ret = []
         it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', total=len(texts))
         for doc in it:
-            # doc on attributes of a token at https://spacy.io/api/token
-            # ignore certain tags & stop words, keep tokens w/ english letters, lemmatize & lowercase
-            if self.tokenize_scheme == 'chunk':
-                toks = [chunk.text for chunk in doc.noun_chunks]
-            else:  # `word`, `2-gram`
-                toks = [tok.lemma_.lower() for tok in doc if self.keep_token(tok)]
-                if self.tokenize_scheme == '2-gram':
-                    toks = [' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)]
+            toks = self.process_single(doc)
             it.set_postfix(tok_len=pl.i(len(toks)))
             ret.append(toks)
         avg_tok_len_ = round(np.mean([len(toks) for toks in ret]), 2)
@@ -92,12 +87,29 @@ class TextPreprocessor:
             _logger.info(f'Preprocessing finished w/ average token length {pl.i(avg_tok_len)} => {pl.i(avg_tok_len_)}')
         return ret
 
+    def process_single(self, text: Union[str, Doc]) -> List[str]:
+        doc = self.nlp(text) if isinstance(text, str) else text
+
+        # doc on attributes of a token at https://spacy.io/api/token
+        # ignore certain tags & stop words, keep tokens w/ english letters, lemmatize & lowercase
+        if self.tokenize_scheme == 'chunk':
+            toks = [chunk.text for chunk in doc.noun_chunks]
+        else:  # `word`, `2-gram`
+            toks = [tok.lemma_.lower() for tok in doc if self.keep_token(tok)]
+            if self.tokenize_scheme == '2-gram':
+                toks = [' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)]
+        return toks
+
 
 if __name__ == '__main__':
     from stefutil.prettier import mic
 
     def check_process():
+        tp = TextPreprocessor()
+
         docs = ['hello world', 'japan-soccer.']
-        lst_toks = TextPreprocessor()(docs)
+        lst_toks = tp(docs)
         mic(lst_toks)
+
+        mic(tp.process_single('hello world'))
     check_process()
