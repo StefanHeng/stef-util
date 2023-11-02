@@ -82,7 +82,6 @@ class TextPreprocessor:
             if self.tokenize_scheme == 'chunk':
                 toks = [chunk.text for chunk in doc.noun_chunks]
             else:  # `word`, `2-gram`
-                mic([self.keep_token(t) for t in doc])
                 toks = [tok.lemma_.lower() for tok in doc if self.keep_token(tok)]
                 if self.tokenize_scheme == '2-gram':
                     toks = [' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)]
