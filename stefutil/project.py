@@ -5,12 +5,12 @@ Project & project file structure related
 import os
 import json
 from os.path import join as os_join
-from typing import Dict
+from typing import List, Dict, Union
 
 import matplotlib.pyplot as plt
 
 from stefutil.container import get
-from stefutil.prettier import now
+from stefutil.prettier import now, ca
 
 
 __all__ = ['StefConfig', 'StefUtil']
@@ -44,7 +44,7 @@ class StefUtil:
 
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
-            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: bool = True
+            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: Union[bool, str, List[str]] = True
     ):
         """
         :param base_path: Absolute system path for root directory that contains a project folder & a data folder
@@ -70,8 +70,18 @@ class StefUtil:
         self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
 
         if makedirs:
-            for path in [self.dset_path, self.model_path, self.plot_path, self.eval_path]:
-                os.makedirs(path, exist_ok=True)
+            dirs_list = ['dataset', 'model', 'plot', 'eval']
+            if makedirs is True:
+                dirs = dirs_list
+            elif isinstance(makedirs, str):
+                dirs = [makedirs]
+            else:
+                assert isinstance(makedirs, list)
+                dirs = makedirs
+            dir2path = dict(dataset=self.dset_path, model=self.model_path, plot=self.plot_path, eval=self.eval_path)
+            for dir_ in dirs:
+                ca.check_mismatch(display_name='Directories to create', val=dir_, expected=dirs_list)
+                os.makedirs(dir2path[dir_], exist_ok=True)
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
