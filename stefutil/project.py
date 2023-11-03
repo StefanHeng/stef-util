@@ -10,10 +10,13 @@ from typing import List, Dict, Union
 import matplotlib.pyplot as plt
 
 from stefutil.container import get
-from stefutil.prettier import now, ca
+from stefutil.prettier import now, ca, get_logger, pl
 
 
 __all__ = ['StefConfig', 'StefUtil']
+
+
+logger = get_logger(__name__)
 
 
 class StefConfig:
@@ -80,8 +83,10 @@ class StefUtil:
                 dirs = makedirs
             dir2path = dict(dataset=self.dset_path, model=self.model_path, plot=self.plot_path, eval=self.eval_path)
             for dir_ in dirs:
-                ca.check_mismatch(display_name='Directories to create', val=dir_, expected=dirs_list)
-                os.makedirs(dir2path[dir_], exist_ok=True)
+                ca.check_mismatch(display_name='Directories to create', val=dir_, accepted_values=dirs_list)
+                path = dir2path[dir_]
+                os.makedirs(path, exist_ok=True)
+                logger.info(f'Created directory {pl.i(path)}')
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
