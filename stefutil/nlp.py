@@ -77,7 +77,7 @@ class TextPreprocessor:
         assert isinstance(texts, list) and len(texts) > 0
         avg_tok_len = round(np.mean([len(doc2tokens(sent)) for sent in texts]), 2)
         ret = []
-        it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', total=len(texts))
+        it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', unit=pl.i('doc'), total=len(texts))
         for doc in it:
             toks = self.process_single(doc)
             it.set_postfix(tok_len=pl.i(len(toks)))

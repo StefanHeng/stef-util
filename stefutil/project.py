@@ -44,7 +44,7 @@ class StefUtil:
 
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
-            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False
+            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: bool = True
     ):
         """
         :param base_path: Absolute system path for root directory that contains a project folder & a data folder
@@ -69,8 +69,9 @@ class StefUtil:
         self.plot_path = os_join(self.base_path, self.proj_dir, StefUtil.plot_dir)
         self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
 
-        for path in [self.dset_path, self.model_path, self.plot_path, self.eval_path]:
-            os.makedirs(path, exist_ok=True)
+        if makedirs:
+            for path in [self.dset_path, self.model_path, self.plot_path, self.eval_path]:
+                os.makedirs(path, exist_ok=True)
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
