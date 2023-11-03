@@ -85,8 +85,9 @@ class StefUtil:
             for dir_ in dirs:
                 ca.check_mismatch(display_name='Directories to create', val=dir_, accepted_values=dirs_list)
                 path = dir2path[dir_]
-                os.makedirs(path, exist_ok=True)
-                logger.info(f'Created directory {pl.i(path)}')
+                if not os.path.exists(path):
+                    os.makedirs(path)
+                    logger.info(f'Created directory {pl.i(path)}')
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
