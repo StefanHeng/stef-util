@@ -110,7 +110,9 @@ class StefUtil:
         :param time_args: `now` arguments
         """
         if save:
-            args = dict(fmt='short-date') | (time_args or dict())
+            args = dict(fmt='short-date')
+            if time_args is not None:
+                args.update(time_args)
             t = now(**args)
             if prefix_time:
                 fnm = f'{t}_{title}.png'
