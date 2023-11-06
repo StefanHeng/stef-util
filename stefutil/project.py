@@ -110,8 +110,8 @@ class StefUtil:
         :param time_args: `now` arguments
         """
         if save:
-            args = dict(fmt='short-date')
-            if time_args is not None:
+            args = dict(fmt='short-date', for_path=True)
+            if time_args is not None:  # for python3.8 compatibility
                 args.update(time_args)
             t = now(**args)
             if prefix_time:
