@@ -47,7 +47,8 @@ class StefUtil:
 
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
-            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: Union[bool, str, List[str]] = True
+            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: Union[bool, str, List[str]] = True,
+            verbose: bool = True
     ):
         """
         :param base_path: Absolute system path for root directory that contains a project folder & a data folder
@@ -56,6 +57,9 @@ class StefUtil:
         :param dataset_dir: Directory name that contains datasets
         :param model_dir: Directory name that contains trained models
         :param within_proj: If true, model and dataset directories are under project directory
+        :param makedirs: If true, create directories if they don't exist
+            If a list is passed in, create only those directories
+        :param verbose: If true, log messages are printed
         """
         self.base_path = base_path
         self.proj_dir = project_dir
@@ -72,6 +76,9 @@ class StefUtil:
         self.plot_path = os_join(self.base_path, self.proj_dir, StefUtil.plot_dir)
         self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
 
+        self.makedirs = makedirs
+        self.verbose = verbose
+
         if makedirs:
             dirs_list = ['dataset', 'model', 'plot', 'eval']
             if makedirs is True:
@@ -87,7 +94,8 @@ class StefUtil:
                 path = dir2path[dir_]
                 if not os.path.exists(path):
                     os.makedirs(path)
-                    logger.info(f'Created directory {pl.i(path)}')
+                    if verbose:
+                        logger.info(f'Created directory {pl.i(path)}')
 
     def save_fig(
             self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
@@ -108,4 +116,8 @@ class StefUtil:
                 fnm = f'{t}_{title}.png'
             else:
                 fnm = f'{title}, {t}.png'
-            plt.savefig(os_join((save_path or self.plot_path), fnm), dpi=300)
+            path = os_join((save_path or self.plot_path), fnm)
+            plt.savefig(path, dpi=300)
+            if self.verbose:
+                d_log = dict(title=title, path=path)
+                logger.info(f'Saved figure w/ {pl.i(d_log)}')
