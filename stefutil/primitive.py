@@ -6,22 +6,25 @@ import re
 import math
 from typing import List, Any, Union
 
-__all__ = ['nan', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices']
+__all__ = ['nan', 'float_is_sci', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices']
 
 
 nan = float('nan')
 
 
+def float_is_sci(f: Union[float, str]) -> bool:
+    return 'e' in str(f).lower()
+
+
 def is_float(x: Any, no_int=False, no_sci=False) -> bool:
     try:
-        is_sci = isinstance(x, str) and 'e' in x.lower()
         f = float(x)
         is_int = f.is_integer()
         out = True
         if no_int:
             out = out and (not is_int)
         if no_sci:
-            out = out and (not is_sci)
+            out = out and (not float_is_sci(x))
         return out
     except (ValueError, TypeError):
         return False

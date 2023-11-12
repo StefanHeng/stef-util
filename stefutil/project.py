@@ -13,13 +13,13 @@ from stefutil.container import get
 from stefutil.prettier import now, ca, get_logger, pl
 
 
-__all__ = ['StefConfig', 'StefUtil']
+__all__ = ['SConfig', 'PathUtil']
 
 
 logger = get_logger(__name__)
 
 
-class StefConfig:
+class SConfig:
     """
     the one-stop place for package-level constants, expects a json file
     """
@@ -37,7 +37,7 @@ class StefConfig:
         return get(dic=self.d, ks=keys)
 
 
-class StefUtil:
+class PathUtil:
     """
     Effectively curried functions with my enforced project & dataset structure
         Pass in file paths
@@ -73,8 +73,8 @@ class StefUtil:
         self.dset_path = os_join(base_path, self.dset_dir)
         self.model_path = os_join(base_path, self.model_dir)
 
-        self.plot_path = os_join(self.base_path, self.proj_dir, StefUtil.plot_dir)
-        self.eval_path = os_join(self.base_path, self.proj_dir, StefUtil.eval_dir)
+        self.plot_path = os_join(self.base_path, self.proj_dir, PathUtil.plot_dir)
+        self.eval_path = os_join(self.base_path, self.proj_dir, PathUtil.eval_dir)
 
         self.makedirs = makedirs
         self.verbose = verbose

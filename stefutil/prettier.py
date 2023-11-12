@@ -24,7 +24,7 @@ import colorama
 from tqdm.auto import tqdm
 from icecream import IceCreamDebugger
 
-from stefutil.primitive import is_float
+from stefutil.primitive import *
 
 
 __all__ = [
@@ -195,10 +195,22 @@ class PrettyLogger:
             return PrettyLogger._list(s, **kwargs)
         elif isinstance(s, tuple):
             return PrettyLogger._tuple(s, **kwargs)
+        elif isinstance(s, float):
+            s = PrettyLogger._float(s, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
+            return PrettyLogger.i(s, **kwargs)
         else:
             kwargs_ = dict(c='i')
             kwargs_.update(kwargs)
             return PrettyLogger.s(s, **kwargs_)
+
+    @staticmethod
+    def _float(f: float, pad: int = None) -> str:
+        if float_is_sci(f):
+            return str(f).replace('e-0', 'e-').replace('e+0', 'e+')  # remove leading 0
+        elif pad:
+            return f'{f:>{pad}}'
+        else:
+            return str(f)
 
     @staticmethod
     def pa(s, shorter_bool: bool = True, **kwargs):
@@ -267,17 +279,18 @@ class PrettyLogger:
                     return 'T' if v else 'F'
                 # Pad only normal, expected floats, intended for metric logging
                 #   suggest 5 for 2 decimal point percentages
-                elif is_float(v) and pad_float:
-                    if is_float(v, no_int=True, no_sci=True):
-                        v = float(v)
-                        if with_color:
-                            return PrettyLogger.log(v, c='i', as_str=True, pad=pad_float)
-                        else:
-                            return f'{v:>{pad_float}}' if pad_float else v
-                    else:
-                        return PrettyLogger.i(v) if with_color else v
+                # elif is_float(v) and pad_float:
+                #     if is_float(v, no_int=True, no_sci=True):
+                #         v = float(v)
+                #         if with_color:
+                #             return PrettyLogger.log(v, c='i', as_str=True, pad=pad_float)
+                #         else:
+                #             return f'{v:>{pad_float}}' if pad_float else v
+                #     else:
+                #         return PrettyLogger.i(v) if with_color else v
                 else:
-                    return PrettyLogger.i(v) if with_color else v
+                    # return PrettyLogger.i(v) if with_color else v
+                    return PrettyLogger.i(v, with_color=with_color, pad_float=pad_float)
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
@@ -1016,4 +1029,15 @@ if __name__ == '__main__':
         mic(now(for_path=True, fmt='date'))
         mic(now(for_path=True, fmt='full'))
         mic(now(for_path=True, fmt='short-full'))
-    check_now()
+    # check_now()
+
+    def check_sci():
+        num = 3e-5
+        f1 = 84.7
+        mic(num, str(num))
+        d = dict(num=num, f1=f1)
+        mic(pl.pa(d))
+        print(pl.i(d))
+        print(pl.i(num))
+    check_sci()
+
