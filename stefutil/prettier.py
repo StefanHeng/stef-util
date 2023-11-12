@@ -201,6 +201,7 @@ class PrettyLogger:
         else:
             kwargs_ = dict(c='i')
             kwargs_.update(kwargs)
+            kwargs_.pop('pad_float', None)
             return PrettyLogger.s(s, **kwargs_)
 
     @staticmethod
@@ -1035,7 +1036,7 @@ if __name__ == '__main__':
         num = 3e-5
         f1 = 84.7
         mic(num, str(num))
-        d = dict(num=num, f1=f1)
+        d = dict(md='bla', num=num, f1=f1)
         mic(pl.pa(d))
         print(pl.i(d))
         print(pl.i(num))
