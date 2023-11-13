@@ -170,6 +170,7 @@ class VecProjOutput:
 
 def vector_projection_plot(
         name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup',
+        ellipse: bool = True, ellipse_std: Union[int, float] = 1,
         title: str = None
 ):
     """
@@ -180,6 +181,8 @@ def vector_projection_plot(
     :param tsne_args: Arguments for TSNE dimensionality reduction
     :param tight_fig_size: If true, resize the figure to fit the axis range
     :param key_name: column name for setup in the internal dataframe
+    :param ellipse: If true, plot confidence ellipse for each setup
+    :param ellipse_std: Number of standard deviations for ellipse
     :param title: plot title
     """
     vects = np.concatenate(list(name2vectors.values()), axis=0)
@@ -194,9 +197,10 @@ def vector_projection_plot(
     cs = sns.color_palette('husl', n_colors=len(name2vectors))
     ax = sns.scatterplot(data=df, x='x', y='y', hue=key_name, palette=cs, size=key_name, sizes=dnm2ms, alpha=0.7)
 
-    for nm, c in zip(name2vectors.keys(), cs):
-        x, y = df[df[key_name] == nm]['x'].values, df[df[key_name] == nm]['y'].values
-        confidence_ellipse(ax_=ax, x=x, y=y, n_std=1.25, fc=to_rgba(c, 0.1), ec=to_rgba(c, 0.6))
+    if ellipse:
+        for nm, c in zip(name2vectors.keys(), cs):
+            x, y = df[df[key_name] == nm]['x'].values, df[df[key_name] == nm]['y'].values
+            confidence_ellipse(ax_=ax, x=x, y=y, n_std=ellipse_std, fc=to_rgba(c, 0.1), ec=to_rgba(c, 0.6))
 
     ax.set_aspect('equal')
     if tight_fig_size:

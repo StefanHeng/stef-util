@@ -47,7 +47,7 @@ class PathUtil:
 
     def __init__(
             self, base_path: str = None, project_dir: str = None, package_name: str = None,
-            dataset_dir: str = None, model_dir: str = None, within_proj: bool = False, makedirs: Union[bool, str, List[str]] = True,
+            dataset_dir: str = None, model_dir: str = None, within_proj: bool = True, makedirs: Union[bool, str, List[str]] = True,
             verbose: bool = True
     ):
         """
