@@ -169,7 +169,8 @@ class VecProjOutput:
 
 
 def vector_projection_plot(
-        name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup'
+        name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup',
+        title: str = None
 ):
     """
     Given vectors grouped by key, plot projections of vectors into 2D space
@@ -179,6 +180,7 @@ def vector_projection_plot(
     :param tsne_args: Arguments for TSNE dimensionality reduction
     :param tight_fig_size: If true, resize the figure to fit the axis range
     :param key_name: column name for setup in the internal dataframe
+    :param title: plot title
     """
     vects = np.concatenate(list(name2vectors.values()), axis=0)
     tsne_args_ = dict(n_components=2, perplexity=50, random_state=42)
@@ -205,4 +207,6 @@ def vector_projection_plot(
         height, weight = math.sqrt(base_area / ratio), math.sqrt(base_area * ratio)
         plt.gcf().set_size_inches(weight, height)
 
+    if title:
+        plt.suptitle(title)
     return VecProjOutput(df=df, ax=ax)

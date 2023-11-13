@@ -98,7 +98,7 @@ class PathUtil:
                         logger.info(f'Created directory {pl.i(path)}')
 
     def save_fig(
-            self, title, save=True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
+            self, title: str = None, save: bool = True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
     ):
         """
         :param title: Rendered figure title
@@ -110,10 +110,16 @@ class PathUtil:
         :param time_args: `now` arguments
         """
         if save:
-            args = dict(fmt='short-date', for_path=True)
+            args = dict(fmt='short-full', for_path=True)
             if time_args is not None:  # for python3.8 compatibility
                 args.update(time_args)
             t = now(**args)
+
+            if 'w/' in title:
+                title = title.replace('w/', 'with')
+            elif '/' in title:
+                raise ValueError(f'Invalid title {pl.i(title)} for containing [{pl.i("/")}]')
+
             if prefix_time:
                 fnm = f'{t}_{title}.png'
             else:
