@@ -1,15 +1,19 @@
 import re
+import math
 from typing import List, Union
 
 import numpy as np
+import torch
+from sentence_transformers import SentenceTransformer
 import spacy
 from spacy.tokens import Doc
 from tqdm import tqdm
 
-from stefutil.prettier import get_logger, ca, pl
+from stefutil.container import *
+from stefutil.prettier import *
 
 
-__all__ = ['doc2tokens', 'TextPreprocessor']
+__all__ = ['doc2tokens', 'TextPreprocessor', 'SbertEncoder']
 
 
 _logger = get_logger(__name__)
@@ -99,6 +103,40 @@ class TextPreprocessor:
             if self.tokenize_scheme == '2-gram':
                 toks = [' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)]
         return toks
+
+
+class SbertEncoder:
+    """
+    Encode texts w/ SBert, a wrapper around `SentenceTransformer`
+    """
+    model_name2model = dict()  # class-level model cache
+
+    def __init__(self, model_name: str = 'all-mpnet-base-v2'):
+        # per SBert package, the one with the highest quality
+        self.model_name = model_name
+
+    @property
+    def model(self):
+        if self.model_name not in SbertEncoder.model_name2model:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            SbertEncoder.model_name2model[self.model_name] = SentenceTransformer(self.model_name, device=device)
+        return SbertEncoder.model_name2model[self.model_name]
+
+    def __call__(self, texts: List[str], batch_size: int = 32, desc: str = None) -> np.ndarray:
+        """
+        :param texts: List of texts to encode
+        :param batch_size: encode batch size
+        :param desc: description for tqdm
+        """
+        n, bsz = len(texts), batch_size
+        n_ba = math.ceil(n / bsz)
+
+        lst_vects = np.empty(n_ba, dtype=object)
+        it = tqdm(group_n(texts, bsz), total=n_ba, desc=desc, unit='ba')
+        it.set_postfix(n=pl.i(n), bsz=pl.i(bsz))
+        for i, sents in enumerate(it):
+            lst_vects[i] = self.model.encode(sents, batch_size=bsz)
+        return np.concatenate(lst_vects, axis=0)
 
 
 if __name__ == '__main__':

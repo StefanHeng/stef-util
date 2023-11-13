@@ -4,12 +4,19 @@ plotting
 see also `StefUtil.save_fig`
 """
 
-from typing import List, Iterable, Callable, Any, Union
+import math
+from typing import List, Dict, Iterable, Callable, Any, Union
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+from matplotlib.patches import Ellipse
+from matplotlib.colors import to_rgba
+import matplotlib.transforms as transforms
 
 from stefutil.prettier import ca
 from stefutil.container import df_col2cat_col
@@ -17,7 +24,7 @@ from stefutil.container import df_col2cat_col
 
 __all__ = [
     'LN_KWARGS',
-    'change_bar_width', 'vals2colors', 'set_color_bar', 'barplot',
+    'change_bar_width', 'vals2colors', 'set_color_bar', 'barplot', 'VecProjOutput', 'vector_projection_plot'
 ]
 
 
@@ -130,3 +137,72 @@ def barplot(
     if show:
         plt.show()
     return ax
+
+
+def confidence_ellipse(ax_, x, y, n_std=1., **kws):
+    """
+    Modified from https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
+    Create a plot of the covariance confidence ellipse of x and y
+
+    :param ax_: matplotlib axes object to plot ellipse on
+    :param x: x values
+    :param y: y values
+    :param n_std: number of standard deviations to determine the ellipse's radius'
+    :return matplotlib.patches.Ellipse
+    """
+    cov = np.cov(x, y)
+    pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
+    r_x, r_y = np.sqrt(1 + pearson), np.sqrt(1 - pearson)
+    _args = {**dict(fc='none'), **kws}
+    ellipse = Ellipse((0, 0), width=r_x * 2, height=r_y * 2, **_args)
+    scl_x, scl_y = np.sqrt(cov[0, 0]) * n_std, np.sqrt(cov[1, 1]) * n_std
+    mu_x, mu_y = np.mean(x), np.mean(y)
+    tsf = transforms.Affine2D().rotate_deg(45).scale(scl_x, scl_y).translate(mu_x, mu_y)
+    ellipse.set_transform(tsf + ax_.transData)
+    return ax_.add_patch(ellipse)
+
+
+@dataclass
+class VecProjOutput:
+    df: pd.DataFrame = None
+    ax: plt.Axes = None
+
+
+def vector_projection_plot(
+        name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup'
+):
+    """
+    Given vectors grouped by key, plot projections of vectors into 2D space
+        Intended for plotting embedding space of SBert sentence representations
+
+    :param name2vectors: 2D vectors grouped by setup name
+    :param tsne_args: Arguments for TSNE dimensionality reduction
+    :param tight_fig_size: If true, resize the figure to fit the axis range
+    :param key_name: column name for setup in the internal dataframe
+    """
+    vects = np.concatenate(list(name2vectors.values()), axis=0)
+    tsne_args_ = dict(n_components=2, perplexity=50, random_state=42)
+    tsne_args_.update(tsne_args or dict())
+    vects_reduced = TSNE(**tsne_args_).fit_transform(vects)
+    setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
+    df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})
+
+    ms = 48  # more samples => smaller markers
+    dnm2ms = {nm: 1 / math.log((len(v))) * ms for nm, v in name2vectors.items()}
+    cs = sns.color_palette('husl', n_colors=len(name2vectors))
+    ax = sns.scatterplot(data=df, x='x', y='y', hue=key_name, palette=cs, size=key_name, sizes=dnm2ms, alpha=0.7)
+
+    for nm, c in zip(name2vectors.keys(), cs):
+        x, y = df[df[key_name] == nm]['x'].values, df[df[key_name] == nm]['y'].values
+        confidence_ellipse(ax_=ax, x=x, y=y, n_std=1.25, fc=to_rgba(c, 0.1), ec=to_rgba(c, 0.6))
+
+    ax.set_aspect('equal')
+    if tight_fig_size:
+        # resize the figure w.r.t axis range
+        (x_min, x_max), (y_min, y_max) = ax.get_xlim(), ax.get_ylim()
+        ratio = (x_max - x_min) / (y_max - y_min)
+        base_area = 100
+        height, weight = math.sqrt(base_area / ratio), math.sqrt(base_area * ratio)
+        plt.gcf().set_size_inches(weight, height)
+
+    return VecProjOutput(df=df, ax=ax)
