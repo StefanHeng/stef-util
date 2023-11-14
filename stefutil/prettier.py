@@ -434,6 +434,23 @@ class MyFormatter(logging.Formatter):
         return self.formatter[entry.levelno].format(entry)
 
 
+class HandlerFilter(logging.Filter):
+    """
+    Blocking messages based on handler
+        Intended for sending messages to log file only when both `stdout` and `file` handlers are used
+    """
+    def __init__(self, handler_name: str = None, **kwargs):
+        super().__init__(**kwargs)
+        self.handler_name = handler_name
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        block = getattr(record, 'block', None)
+        if block and self.handler_name == block:
+            return False
+        else:
+            return True
+
+
 # credit: https://stackoverflow.com/a/14693789/10732321
 _ansi_escape = re.compile(r'''
     \x1B  # ESC
@@ -466,12 +483,12 @@ class CleanAnsiFileHandler(logging.FileHandler):
 
 def get_logging_handler(kind: str, file_path: str = None) -> Union[logging.Handler, List[logging.Handler]]:
     if kind == 'both':
-        return [get_logging_handler(kind='stdout'), get_logging_handler(kind='file-write', file_path=file_path)]
+        return [get_logging_handler(kind='stdout'), get_logging_handler(kind='file', file_path=file_path)]
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
-    else:  # `file-write`
+    else:  # `file`
         if not file_path:
-            raise ValueError(f'{pl.i(file_path)} must be specified for {pl.i("file-write")} logging')
+            raise ValueError(f'{pl.i(file_path)} must be specified for {pl.i("file")} logging')
 
         dnm = os.path.dirname(file_path)
         if dnm and not os.path.exists(dnm):
@@ -479,18 +496,19 @@ def get_logging_handler(kind: str, file_path: str = None) -> Union[logging.Handl
         handler = CleanAnsiFileHandler(file_path)
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
+    handler.addFilter(HandlerFilter(handler_name=kind))
     return handler
 
 
 def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> logging.Logger:
     """
     :param name: Name of the logger
-    :param kind: Logger type, one of [`stdout`, `file-write`, `both`]
-        `both` intended for writing to terminal with color and *then* removing styles for file-write
-    :param file_path: File path for file-write logging
+    :param kind: Logger type, one of [`stdout`, `file`, `both`]
+        `both` intended for writing to terminal with color and *then* removing styles for file
+    :param file_path: File path for file logging
     """
     assert kind in ['stdout', 'file-write', 'both']
-    logger = logging.getLogger(f'{name} file write' if kind == 'file-write' else name)
+    logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
     logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
     logger.setLevel(logging.DEBUG)
 
@@ -509,7 +527,7 @@ def add_file_handler(logger: logging.Logger, file_path: str):
 
     Removes prior all `FileHandler`s if exists
     """
-    handler = get_logging_handler(kind='file-write', file_path=file_path)
+    handler = get_logging_handler(kind='file', file_path=file_path)
     for h in logger.handlers:
         if isinstance(h, logging.FileHandler):
             logger.removeHandler(h)
@@ -720,11 +738,11 @@ class MyProgressCallback(TrainerCallback):
 
 class LogStep:
     """
-    My typical terminal, file-write, tqdm logging for a single step
+    My typical terminal, file & tqdm logging for a single step
     """
     def __init__(
             self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
-            logger: logging.Logger = None, file_logger: logging.Logger = None,
+            logger: logging.Logger = None, file_logger: Union[logging.Logger, bool] = None,
             tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True,
             global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_split: bool = False
     ):
@@ -744,7 +762,11 @@ class LogStep:
 
         self.prettier = prettier or MlPrettier()
         self.logger = logger
-        self.file_logger = file_logger
+        self.file_logger, self.logger_logs_file = None, False
+        if file_logger is True:  # assumes `logger` also writes to file
+            self.logger_logs_file = True
+        elif isinstance(file_logger, logging.Logger):
+            self.file_logger = file_logger
         self.tb_writer = tb_writer
 
         self.global_step_with_epoch = global_step_with_epoch
@@ -756,7 +778,7 @@ class LogStep:
 
     def __call__(
             self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None, prefix: str = None,
-            add_pbar_postfix: bool = True
+            add_pbar_postfix: bool = True, to_file: bool = True
     ):
         """
         :param d_log: Dict to log
@@ -795,21 +817,30 @@ class LogStep:
             if pbar and add_pbar_postfix:
                 tqdm_kws = {k: pl.i(v) for k, v in d_log_p.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
-        if to_console:
-            if self.logger:
-                d = d_log_p if self.prettier_console else d_log
-                if self.console_with_split and split_str:
-                    d = self.prettier.add_split_prefix(d, split=split_str)
-                msg = pl.i(d)
-                if prefix:
-                    msg = f'{prefix}{msg}'
-                self.logger.info(msg)
+        if to_console and self.logger:
+            d = d_log_p if self.prettier_console else d_log
+            if self.console_with_split and split_str:
+                d = self.prettier.add_split_prefix(d, split=split_str)
+            msg = pl.i(d)
+            if prefix:
+                msg = f'{prefix}{msg}'
 
-        if self.file_logger:
+            extra = None
+            if self.logger_logs_file and not to_file:  # blocks logging to file
+                extra = dict(block='file')
+            self.logger.info(msg, extra=extra)
+
+        if to_file:
             msg = pl.nc(d_log)
             if prefix:
                 msg = f'{prefix}{msg}'
-            self.file_logger.info(msg)
+
+            if self.file_logger:
+                self.file_logger.info(msg)
+            elif self.logger_logs_file and self.logger and not to_console:
+                # if `to_console` is true, already logged to file too
+                extra = dict(block='stdout')  # blocks logging to console
+                self.logger.info(msg, extra=extra)
 
 
 class CheckArg:
@@ -993,13 +1024,14 @@ if __name__ == '__main__':
     # check_omit_none()
 
     def check_both_handler():
-        mic('now creating handler')
-        print('now creating')
+        # mic('now creating handler')
+        print('now creating handler')
         # logger = get_logger('test-both', kind='stdout')
         logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
         d_log = dict(a=1, b=2, c='test')
         logger.info(pl.i(d_log))
-    # check_both_handler()
+        logger.info('only to file', extra=dict(block='stdout'))
+    check_both_handler()
 
     def check_prettier():
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
@@ -1043,5 +1075,5 @@ if __name__ == '__main__':
         mic(pl.pa(d))
         print(pl.i(d))
         print(pl.i(num))
-    check_sci()
+    # check_sci()
 
