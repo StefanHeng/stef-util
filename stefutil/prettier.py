@@ -754,7 +754,10 @@ class LogStep:
     def _should_add(self, key: str) -> bool:
         return self.prettier.should_add_split_prefix(key) if self.prettier else True
 
-    def __call__(self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None, prefix: str = None):
+    def __call__(
+            self, d_log: Dict, training: bool = None, to_console: bool = True, split: str = None, prefix: str = None,
+            add_pbar_postfix: bool = True
+    ):
         """
         :param d_log: Dict to log
         :param training: Whether `d_log` is for training or evaluation
@@ -789,7 +792,7 @@ class LogStep:
                 pbar = self.pbar
             else:
                 pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
-            if pbar:
+            if pbar and add_pbar_postfix:
                 tqdm_kws = {k: pl.i(v) for k, v in d_log_p.items() if self._should_add(k)}
                 pbar.set_postfix(tqdm_kws)
         if to_console:
