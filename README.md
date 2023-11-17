@@ -1,4 +1,7 @@
 # Stef-util
+
+[![Downloads](https://static.pepy.tech/badge/stefutils)](https://pepy.tech/project/stefutils)
+
 My utility functions to start machine learning projects 
 
 ## Usage
