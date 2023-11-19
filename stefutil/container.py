@@ -18,7 +18,7 @@ from stefutil.prettier import pl
 __all__ = [
     'get', 'set_', 'it_keys',
     'list_is_same_elms', 'chain_its', 'join_it', 'group_n', 'split_n', 'list_split', 'lst2uniq_ids', 'compress',
-    'np_index', 'df_col2cat_col', 'pt_sample'
+    'np_index', 'describe', 'df_col2cat_col', 'pt_sample'
 ]
 
 
@@ -71,7 +71,10 @@ def list_is_same_elms(lst: List[T]) -> bool:
     return all(l == lst[0] for l in lst)
 
 
-def chain_its(its: Iterable[Iterable[T]]) -> Iterable[T]:
+def chain_its(its: Union[
+    Iterable[Iterable[T]],
+    Iterable[List[T]]
+]) -> Iterable[T]:
     """
     Chain multiple iterables
     """
@@ -155,6 +158,14 @@ def compress(lst: List[T]) -> List[Tuple[T, int]]:
 
 def np_index(arr, idx):
     return np.where(arr == idx)[0][0]
+
+
+def describe(vals: Union[List, np.ndarray], round_dec: int = None) -> Dict[str, Any]:
+    df = pd.DataFrame(vals, columns=['value'])
+    ret = df.describe().to_dict()['value']
+    if round_dec:
+        ret = {k: round(v, round_dec) for k, v in ret.items()}
+    return ret
 
 
 def df_col2cat_col(df: pd.DataFrame, col_name: str, categories: List[str]) -> pd.DataFrame:
