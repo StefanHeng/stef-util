@@ -23,21 +23,22 @@ from stefutil.container import df_col2cat_col
 
 
 __all__ = [
-    'LN_KWARGS',
+    'set_plot_style', 'LN_KWARGS',
     'change_bar_width', 'vals2colors', 'set_color_bar', 'barplot', 'VecProjOutput', 'vector_projection_plot'
 ]
 
 
-plt.rc('figure', figsize=(16, 9))
-plt.rc('figure.constrained_layout', use=True)
-plt.rc('text.latex', preamble='\n'.join([
-    r'\usepackage{nicefrac}',
-    r'\usepackage{helvet}',
-    r'\usepackage{sansmath}',  # render math sans-serif
-    r'\sansmath'
-]))
-sns.set_style('darkgrid')
-sns.set_context(rc={'grid.linewidth': 0.5})
+def set_plot_style():
+    plt.rc('figure', figsize=(16, 9))
+    plt.rc('figure.constrained_layout', use=True)
+    plt.rc('text.latex', preamble='\n'.join([
+        r'\usepackage{nicefrac}',
+        r'\usepackage{helvet}',
+        r'\usepackage{sansmath}',  # render math sans-serif
+        r'\sansmath'
+    ]))
+    sns.set_style('darkgrid')
+    sns.set_context(rc={'grid.linewidth': 0.5})
 
 
 LN_KWARGS = dict(marker='o', ms=0.3, lw=0.25)  # matplotlib line plot default args

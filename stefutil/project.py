@@ -115,6 +115,8 @@ class PathUtil:
                 args.update(time_args)
             t = now(**args)
 
+            if title is None:
+                title = 'Figure'
             if 'w/' in title:
                 title = title.replace('w/', 'with')
             elif '/' in title:

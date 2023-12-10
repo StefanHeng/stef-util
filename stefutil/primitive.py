@@ -12,6 +12,10 @@ __all__ = ['nan', 'float_is_sci', 'is_float', 'float_is_int', 'clean_whitespace'
 nan = float('nan')
 
 
+def is_int(x: Any) -> bool:
+    return isinstance(x, int) or (isinstance(x, float) and x.is_integer())
+
+
 def float_is_sci(f: Union[float, str]) -> bool:
     return 'e' in str(f).lower()
 

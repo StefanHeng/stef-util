@@ -243,20 +243,26 @@ class PrettyLogger:
         return highlight(PrettyLogger.id(s), lexers.JsonLexer(), formatters.TerminalFormatter())
 
     @staticmethod
-    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']', for_path: bool = False):
+    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']', sep: str = None, for_path: bool = False):
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
         lst = [PrettyLogger.i(e, with_color=with_color) for e in it]
-        sep = ',' if for_path else ', '
+        if sep is None:
+            sep = ',' if for_path else ', '
         return f'{pref}{sep.join(lst)}{post}'
 
     @staticmethod
-    def _list(lst: List, with_color=True, for_path: bool = False):
-        return PrettyLogger._iter(lst, with_color=with_color, pref='[', post=']', for_path=for_path)
+    def _list(lst: List, **kwargs):
+        args = dict(with_color=True, for_path=False, pref='[', post=']')
+        args.update(kwargs)
+        return PrettyLogger._iter(lst, **args)
 
     @staticmethod
-    def _tuple(tpl: Tuple, with_color=True, for_path: bool = False):
-        return PrettyLogger._iter(tpl, with_color=with_color, pref='(', post=')', for_path=for_path)
+    def _tuple(tpl: Tuple, **kwargs):
+        args = dict(with_color=True, for_path=False, pref='(', post=')')
+        args.update(kwargs)
+        return PrettyLogger._iter(tpl, **args)
+
 
     @staticmethod
     def _dict(
@@ -1031,7 +1037,7 @@ if __name__ == '__main__':
         d_log = dict(a=1, b=2, c='test')
         logger.info(pl.i(d_log))
         logger.info('only to file', extra=dict(block='stdout'))
-    check_both_handler()
+    # check_both_handler()
 
     def check_prettier():
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
@@ -1077,3 +1083,9 @@ if __name__ == '__main__':
         print(pl.i(num))
     # check_sci()
 
+    def check_pl_iter_sep():
+        lst = ['hello', 'world']
+        tup = tuple(lst)
+        print(pl.i(lst, sep='; '))
+        print(pl.i(tup, sep='; '))
+    check_pl_iter_sep()

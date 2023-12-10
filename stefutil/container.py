@@ -203,7 +203,7 @@ if __name__ == '__main__':
         ic(get(d))
 
         ic(get(d, 'a.b.e'))  # will raise error
-    check_get()
+    # check_get()
 
     def check_split_n():
         def _test(n_it: int = None, n: int = None):
@@ -216,3 +216,8 @@ if __name__ == '__main__':
         _test(n_it=156602, n=100)
         _test(n_it=156602, n=1000)
     # check_split_n()
+
+    def check_desc():
+        lst = [1, 2, 3]
+        ic(describe(lst))
+    check_desc()
