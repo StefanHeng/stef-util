@@ -123,7 +123,7 @@ class MyIceCreamDebugger(IceCreamDebugger):
     def output_width(self, value):
         if value != self._output_width:
             self._output_width = value
-            self.lineWrapgitWidth = value
+            self.lineWrapWidth = value
             self.argToStringFunction = lambda x: pprint.pformat(x, width=value)
 
 
@@ -263,11 +263,10 @@ class PrettyLogger:
         args.update(kwargs)
         return PrettyLogger._iter(tpl, **args)
 
-
     @staticmethod
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
-            for_path: Union[bool, str] = False,
+            for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
             omit_none_val: bool = False, **kwargs
     ) -> str:
         """
@@ -305,7 +304,6 @@ class PrettyLogger:
         if with_color:
             key_value_sep = PrettyLogger.s(key_value_sep, c='m')
         pairs = ((k if (omit_none_val and v is None) else f'{k}{key_value_sep}{_log_val(v)}') for k, v in d.items())
-        pref, post = '{', '}'
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
         return pref + pairs_sep.join(pairs) + post
@@ -511,7 +509,7 @@ def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> loggin
     :param name: Name of the logger
     :param kind: Logger type, one of [`stdout`, `file`, `both`]
         `both` intended for writing to terminal with color and *then* removing styles for file
-    :param file_path: File path for file logging
+    :param file_path: file path for file logging
     """
     assert kind in ['stdout', 'file-write', 'both']
     logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
@@ -1053,7 +1051,7 @@ if __name__ == '__main__':
     # check_pa()
 
     def check_log_i():
-        d = dict(a=1, b=True, c='hell')
+        # d = dict(a=1, b=True, c='hell')
         d = ['asd', 'hel', 'sada']
         print(pl.i(d))
         print(pl.i(d, with_color=False))

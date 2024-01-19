@@ -58,10 +58,12 @@ class TextPreprocessor:
 
     nlp = None
 
-    def __init__(self, tokenize_scheme: str = 'word', drop_tags: bool = False, verbose: bool = False):
+    def __init__(self, tokenize_scheme: str = 'word', drop_tags: bool = False, verbose: bool = False, prefer_gpu: bool = None):
         ca.check_mismatch(display_name='Tokenization Scheme', val=tokenize_scheme, accepted_values=['word', '2-gram', 'chunk'])
         self.tokenize_scheme = tokenize_scheme
 
+        if prefer_gpu:
+            spacy.prefer_gpu()
         if TextPreprocessor.nlp is None:
             TextPreprocessor.nlp = self.nlp = spacy.load('en_core_web_sm')
         else:
