@@ -13,6 +13,7 @@ import logging
 import datetime
 from typing import Tuple, List, Dict, Iterable, Any, Union, Optional
 from pygments import highlight, lexers, formatters
+from dataclasses import dataclass
 from collections import OrderedDict
 from collections.abc import Sized
 
@@ -130,6 +131,22 @@ class MyIceCreamDebugger(IceCreamDebugger):
 mic = MyIceCreamDebugger()
 
 
+@dataclass
+class AdjustIndentOutput:
+    prefix: str = None
+    postfix: str = None
+    sep: str = None
+
+
+def _adjust_indentation(prefix: str = None, postfix: str = None, sep: str = None, indent: int = None) -> AdjustIndentOutput:
+    idt = "\t" * indent
+    pref = f'{prefix}\n{idt}'
+    sep = f'{sep}\n{idt}'
+    idt = "\t" * (indent - 1)
+    post = f'\n{idt}{postfix}'
+    return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
+
+
 class PrettyLogger:
     """
     My logging w/ color & formatting, and a lot of syntactic sugar
@@ -185,10 +202,17 @@ class PrettyLogger:
         return PrettyLogger.log(s, c=c, as_str=True, bold=bold)
 
     @staticmethod
-    def i(s, **kwargs):
+    def i(s, indent: int = None, **kwargs):
         """
         Syntactic sugar for logging `info` as string
+
+        :param indent: Maximum indentation level, will be propagated through dict and list only
         """
+        if indent is not None and 'curr_indent' not in kwargs:
+            assert isinstance(indent, int) and indent > 0  # sanity check
+            # idt, idt_end = 1, indent
+            kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
+        # otherwise, already a nested internal call
         if isinstance(s, dict):
             return PrettyLogger._dict(s, **kwargs)
         elif isinstance(s, list):
@@ -202,6 +226,7 @@ class PrettyLogger:
             kwargs_ = dict(c='i')
             kwargs_.update(kwargs)
             kwargs_.pop('pad_float', None)
+            kwargs_.pop('for_path', None)
             return PrettyLogger.s(s, **kwargs_)
 
     @staticmethod
@@ -243,18 +268,41 @@ class PrettyLogger:
         return highlight(PrettyLogger.id(s), lexers.JsonLexer(), formatters.TerminalFormatter())
 
     @staticmethod
-    def _iter(it: Iterable, with_color=True, pref: str = '[', post: str = ']', sep: str = None, for_path: bool = False):
+    def _iter(
+            it: Iterable, with_color=True, pref: str = '[', post: str = ']', sep: str = None, for_path: bool = False,
+            curr_indent: int = None, indent_end: int = None, **kwargs
+    ):
+        # `kwargs` so that customization for other types can be ignored w/o error
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
-        lst = [PrettyLogger.i(e, with_color=with_color) for e in it]
+
+        def log_elm(e):
+            curr_idt = None
+            if curr_indent is not None:  # nest indent further down
+                assert indent_end is not None  # sanity check
+                if curr_indent < indent_end:
+                    curr_idt = curr_indent + 1
+            if isinstance(e, (list, dict)):
+                return PrettyLogger.i(e, with_color=with_color, curr_indent=curr_idt, indent_end=indent_end, for_path=for_path, **kwargs)
+            else:
+                return PrettyLogger.i(e, with_color=with_color, for_path=for_path, **kwargs)
+        lst = [log_elm(e) for e in it]
         if sep is None:
             sep = ',' if for_path else ', '
         return f'{pref}{sep.join(lst)}{post}'
 
     @staticmethod
-    def _list(lst: List, **kwargs):
-        args = dict(with_color=True, for_path=False, pref='[', post=']')
+    def _list(lst: List, sep: str = None, for_path: bool = False, curr_indent: int = None, indent_end: int = None, **kwargs) -> str:
+        args = dict(with_color=True, for_path=False, pref='[', post=']', curr_indent=curr_indent, indent_end=indent_end)
+        if sep is None:
+            args['sep'] = ',' if for_path else ', '
         args.update(kwargs)
+
+        if curr_indent is not None:
+            indent = curr_indent
+            pref, post, sep = args['pref'], args['post'], args['sep']
+            out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent=indent)
+            args['pref'], args['post'], args['sep'] = out.prefix, out.postfix, out.sep
         return PrettyLogger._iter(lst, **args)
 
     @staticmethod
@@ -267,19 +315,25 @@ class PrettyLogger:
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
-            omit_none_val: bool = False, **kwargs
+            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
         """
         def _log_val(v):
+            curr_idt = None
+            if curr_indent is not None:  # nest indent further down
+                assert indent_end is not None  # sanity check
+                if curr_indent < indent_end:
+                    curr_idt = curr_indent + 1
             if isinstance(v, dict):
                 return PrettyLogger.i(
                     v, with_color=with_color, pad_float=pad_float, key_value_sep=key_value_sep,
-                    pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val, **kwargs
+                    pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
+                    curr_indent=curr_idt, indent_end=indent_end, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
-                return PrettyLogger.i(v, with_color=with_color, for_path=for_path)
+                return PrettyLogger.i(v, with_color=with_color, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -304,9 +358,14 @@ class PrettyLogger:
         if with_color:
             key_value_sep = PrettyLogger.s(key_value_sep, c='m')
         pairs = ((k if (omit_none_val and v is None) else f'{k}{key_value_sep}{_log_val(v)}') for k, v in d.items())
+        pairs_sep_ = pairs_sep
+        if curr_indent is not None:
+            indent = curr_indent
+            out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent=indent)
+            pref, post, pairs_sep_ = out.prefix, out.postfix, out.sep
         if with_color:
             pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
-        return pref + pairs_sep.join(pairs) + post
+        return pref + pairs_sep_.join(pairs) + post
 
 
 pl = PrettyLogger()
@@ -1086,4 +1145,16 @@ if __name__ == '__main__':
         tup = tuple(lst)
         print(pl.i(lst, sep='; '))
         print(pl.i(tup, sep='; '))
-    check_pl_iter_sep()
+    # check_pl_iter_sep()
+
+    def check_pl_indent():
+        ds = [
+            dict(a=1, b=dict(c=2, d=3)),
+            dict(a=1, b=[1, 2, 3]),
+            [dict(a=1, b=2), dict(c=3, d=4)],
+            [[1, 2, 3], [4, 5, 6]]
+        ]
+        for d in ds:
+            for idt in [1, 2]:
+                print(pl.i(d, indent=idt))
+    check_pl_indent()
