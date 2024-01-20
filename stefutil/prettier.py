@@ -315,7 +315,7 @@ class PrettyLogger:
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
-            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, **kwargs
+            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, value_no_color: bool = False, **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
@@ -326,14 +326,17 @@ class PrettyLogger:
                 assert indent_end is not None  # sanity check
                 if curr_indent < indent_end:
                     curr_idt = curr_indent + 1
+            c = with_color
+            if value_no_color:
+                c = False
             if isinstance(v, dict):
                 return PrettyLogger.i(
-                    v, with_color=with_color, pad_float=pad_float, key_value_sep=key_value_sep,
+                    v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
                     curr_indent=curr_idt, indent_end=indent_end, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
-                return PrettyLogger.i(v, with_color=with_color, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
+                return PrettyLogger.i(v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -350,7 +353,7 @@ class PrettyLogger:
                 #         return PrettyLogger.i(v) if with_color else v
                 else:
                     # return PrettyLogger.i(v) if with_color else v
-                    return PrettyLogger.i(v, with_color=with_color, pad_float=pad_float)
+                    return PrettyLogger.i(v, with_color=c, pad_float=pad_float)
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
@@ -1157,4 +1160,15 @@ if __name__ == '__main__':
         for d in ds:
             for idt in [1, 2]:
                 print(pl.i(d, indent=idt))
-    check_pl_indent()
+    # check_pl_indent()
+
+    def check_pl_color():
+        elm = pl.i('blah', c='y')
+        s = f'haha {elm} a'
+        print(s)
+        s_b = pl.s(s, c='b')
+        print(s_b)
+        d = dict(a=1, b=s)
+        print(pl.i(d))
+        print(pl.i(d, value_no_color=True))
+    check_pl_color()
