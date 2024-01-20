@@ -225,8 +225,8 @@ class PrettyLogger:
         else:
             kwargs_ = dict(c='i')
             kwargs_.update(kwargs)
-            kwargs_.pop('pad_float', None)
-            kwargs_.pop('for_path', None)
+            for k in ['pad_float', 'for_path', 'value_no_color']:
+                kwargs_.pop(k, None)
             return PrettyLogger.s(s, **kwargs_)
 
     @staticmethod
@@ -1159,8 +1159,8 @@ if __name__ == '__main__':
         ]
         for d in ds:
             for idt in [1, 2]:
-                print(pl.i(d, indent=idt))
-    # check_pl_indent()
+                print(pl.i(d, indent=idt, value_no_color=True))
+    check_pl_indent()
 
     def check_pl_color():
         elm = pl.i('blah', c='y')
@@ -1171,4 +1171,4 @@ if __name__ == '__main__':
         d = dict(a=1, b=s)
         print(pl.i(d))
         print(pl.i(d, value_no_color=True))
-    check_pl_color()
+    # check_pl_color()
