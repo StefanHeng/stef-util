@@ -202,15 +202,22 @@ class PrettyLogger:
         return PrettyLogger.log(s, c=c, as_str=True, bold=bold)
 
     @staticmethod
-    def i(s, indent: int = None, **kwargs):
+    def i(s, indent: Union[int, bool, str] = None, **kwargs):
         """
         Syntactic sugar for logging `info` as string
 
         :param indent: Maximum indentation level, will be propagated through dict and list only
         """
         if indent is not None and 'curr_indent' not in kwargs:
-            assert isinstance(indent, int) and indent > 0  # sanity check
-            # idt, idt_end = 1, indent
+            if isinstance(indent, str):
+                if indent != 'all':
+                    raise ValueError(f'Indentation type {pl.i(indent)} not recognized')
+                indent = float('inf')
+            elif isinstance(indent, bool):
+                assert indent is True
+                indent = float('inf')
+            else:
+                assert isinstance(indent, int) and indent > 0  # sanity check
             kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
         # otherwise, already a nested internal call
         if isinstance(s, dict):
@@ -296,9 +303,11 @@ class PrettyLogger:
         args = dict(with_color=True, for_path=False, pref='[', post=']', curr_indent=curr_indent, indent_end=indent_end)
         if sep is None:
             args['sep'] = ',' if for_path else ', '
+        else:
+            args['sep'] = sep
         args.update(kwargs)
 
-        if curr_indent is not None:
+        if curr_indent is not None and len(lst) > 0:
             indent = curr_indent
             pref, post, sep = args['pref'], args['post'], args['sep']
             out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent=indent)
@@ -315,14 +324,17 @@ class PrettyLogger:
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
-            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, value_no_color: bool = False, **kwargs
+            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, value_no_color: bool = False,
+            align_keys: bool = False,
+            **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
         """
         def _log_val(v):
             curr_idt = None
-            if curr_indent is not None:  # nest indent further down
+            need_indent = isinstance(v, (dict, list)) and len(v) > 0
+            if need_indent and curr_indent is not None:  # nest indent further down
                 assert indent_end is not None  # sanity check
                 if curr_indent < indent_end:
                     curr_idt = curr_indent + 1
@@ -360,7 +372,16 @@ class PrettyLogger:
             key_value_sep = '='
         if with_color:
             key_value_sep = PrettyLogger.s(key_value_sep, c='m')
-        pairs = ((k if (omit_none_val and v is None) else f'{k}{key_value_sep}{_log_val(v)}') for k, v in d.items())
+        max_c = max(len(k) for k in d.keys())
+        pairs = []
+        for k, v_ in d.items():
+            # note only align keys at the root level when indentation is active, not passed to nested calls
+            if align_keys and curr_indent is not None:
+                k = f'{k:<{max_c}}'
+            if omit_none_val and v_ is None:
+                pairs.append(k)
+            else:
+                pairs.append(f'{k}{key_value_sep}{_log_val(v_)}')
         pairs_sep_ = pairs_sep
         if curr_indent is not None:
             indent = curr_indent
@@ -1152,15 +1173,15 @@ if __name__ == '__main__':
 
     def check_pl_indent():
         ds = [
-            dict(a=1, b=dict(c=2, d=3)),
+            dict(a=1, b=dict(c=2, d=3, e=dict(f=1)), c=dict()),
             dict(a=1, b=[1, 2, 3]),
             [dict(a=1, b=2), dict(c=3, d=4)],
-            [[1, 2, 3], [4, 5, 6]]
+            [[1, 2, 3], [4, 5, 6], []]
         ]
         for d in ds:
-            for idt in [1, 2]:
-                print(pl.i(d, indent=idt, value_no_color=True))
-    check_pl_indent()
+            for idt in [1, 2, 'all']:
+                print(f'indent={pl.i(idt)}: {pl.i(d, indent=idt, value_no_color=True)}')
+    # check_pl_indent()
 
     def check_pl_color():
         elm = pl.i('blah', c='y')
@@ -1172,3 +1193,16 @@ if __name__ == '__main__':
         print(pl.i(d))
         print(pl.i(d, value_no_color=True))
     # check_pl_color()
+
+    def check_pl_sep():
+        lst = ['haha', '=>']
+        print(pl.i(lst, sep=' ', pref='', post=''))
+    # check_pl_sep()
+
+    def check_align_d():
+        d = dict(a=1, bbbbbbbbbb=2, ccccc=dict(d=3, e=4, f=['as', 'as']))
+        print(pl.i(d))
+        print(pl.i(d, indent=2))
+        print(pl.i(d, align_keys=True))
+        print(pl.i(d, indent=2, align_keys=True))
+    check_align_d()
