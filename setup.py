@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.32.2'
+VERSION = '0.32.3'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
@@ -13,12 +13,12 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     url='https://github.com/StefanHeng/stef-util',
-    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.32.2.tar.gz',
+    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.32.3.tar.gz',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'sty', 'colorama', 'pygments',
-        'numpy', 'pandas', 'scikit-learn', 'spacy', 'torch', 'transformers>=4.26.2', 'sentence-transformers',
+        'numpy', 'pandas', 'scikit-learn', 'spacy', 'torch', 'transformers>=4.33.2', 'sentence-transformers',
         'matplotlib', 'seaborn', 'tensorboard',
         'tqdm', 'icecream'
     ],

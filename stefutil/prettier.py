@@ -325,12 +325,20 @@ class PrettyLogger:
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
             omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, value_no_color: bool = False,
-            align_keys: bool = False,
+            align_keys: Union[bool, int] = False,
             **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
         """
+        if align_keys and curr_indent is not None:
+            align = 'curr'
+            max_c = max(len(k) for k in d.keys()) if len(d) > 0 else None
+            if isinstance(align_keys, int) and curr_indent != align_keys:  # check if reaching the level of keys to align
+                align = 'pass'
+        else:
+            align, max_c = None, None
+
         def _log_val(v):
             curr_idt = None
             need_indent = isinstance(v, (dict, list)) and len(v) > 0
@@ -341,6 +349,8 @@ class PrettyLogger:
             c = with_color
             if value_no_color:
                 c = False
+            if align == 'pass':
+                kwargs['align_keys'] = align_keys
             if isinstance(v, dict):
                 return PrettyLogger.i(
                     v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
@@ -372,11 +382,10 @@ class PrettyLogger:
             key_value_sep = '='
         if with_color:
             key_value_sep = PrettyLogger.s(key_value_sep, c='m')
-        max_c = max(len(k) for k in d.keys())
+
         pairs = []
         for k, v_ in d.items():
-            # note only align keys at the root level when indentation is active, not passed to nested calls
-            if align_keys and curr_indent is not None:
+            if align == 'curr' and max_c is not None:
                 k = f'{k:<{max_c}}'
             if omit_none_val and v_ is None:
                 pairs.append(k)
@@ -1205,4 +1214,18 @@ if __name__ == '__main__':
         print(pl.i(d, indent=2))
         print(pl.i(d, align_keys=True))
         print(pl.i(d, indent=2, align_keys=True))
-    check_align_d()
+    # check_align_d()
+
+    def check_align_edge():
+        d1 = dict(a=1, bb=2, ccc=dict(d=3, ee=4, fff=['as', 'as']))
+        d2 = dict()
+        d3 = dict(a=dict())
+        for d, aln in [
+            (d1, 1),
+            (d1, 2),
+            (d2, True),
+            (d3, True),
+            (d3, 2)
+        ]:
+            print(pl.i(d, align_keys=aln, indent=True))
+    check_align_edge()
