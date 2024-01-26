@@ -10,16 +10,21 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
-import torch
 
 from stefutil.prettier import pl
+from stefutil._check_import import _SU_USE_DL
 
 
 __all__ = [
     'get', 'set_', 'it_keys',
     'list_is_same_elms', 'chain_its', 'join_it', 'group_n', 'split_n', 'list_split', 'lst2uniq_ids', 'compress',
-    'np_index', 'describe', 'df_col2cat_col', 'pt_sample'
+    'np_index', 'describe', 'df_col2cat_col'
 ]
+
+
+if _SU_USE_DL:
+    import torch
+    __all__ += ['pt_sample']
 
 
 T = TypeVar('T')
@@ -177,16 +182,17 @@ def df_col2cat_col(df: pd.DataFrame, col_name: str, categories: List[str]) -> pd
     return df
 
 
-def pt_sample(d: Dict[K, Union[float, Any]]) -> K:
-    """
-    Sample a key from a dict based on confidence score as value
-        Keys with confidence evaluated to false are ignored
+if _SU_USE_DL:
+    def pt_sample(d: Dict[K, Union[float, Any]]) -> K:
+        """
+        Sample a key from a dict based on confidence score as value
+            Keys with confidence evaluated to false are ignored
 
-    Internally uses `torch.multinomial`
-    """
-    d_keys = {k: v for k, v in d.items() if v}  # filter out `None`s
-    keys, weights = zip(*d_keys.items())
-    return keys[torch.multinomial(torch.tensor(weights), 1, replacement=True).item()]
+        Internally uses `torch.multinomial`
+        """
+        d_keys = {k: v for k, v in d.items() if v}  # filter out `None`s
+        keys, weights = zip(*d_keys.items())
+        return keys[torch.multinomial(torch.tensor(weights), 1, replacement=True).item()]
 
 
 if __name__ == '__main__':

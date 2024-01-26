@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.32.3'
+VERSION = '0.32.4'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
@@ -13,16 +13,24 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     url='https://github.com/StefanHeng/stef-util',
-    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.32.3.tar.gz',
+    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.32.4.tar.gz',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'sty', 'colorama', 'pygments',
-        'numpy', 'pandas', 'scikit-learn', 'spacy', 'torch', 'transformers>=4.33.2', 'sentence-transformers',
-        'matplotlib', 'seaborn', 'tensorboard',
+        'numpy', 'pandas',
         'tqdm', 'icecream'
     ],
-    keywords=['python', 'nlp', 'machine-learning', 'deep-learning'],
+    extras_require={
+        'plot':  ['matplotlib', 'seaborn'],
+        'machine_learning': ['scikit-learn'],
+        'deep_learning': ['spacy', 'torch', 'transformers>=4.33.2', 'sentence-transformers', 'tensorboard']
+    },
+    keywords=[
+        'python',
+        'utility', 'syntactic-sugar', 'prettier', 'formatting',
+        'nlp', 'machine-learning', 'deep-learning'
+    ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Environment :: MacOS X',
