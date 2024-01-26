@@ -13,15 +13,15 @@ from typing import List
 from stefutil.prettier import *
 
 
-__all__ = ['_SU_USE_PLT', '_SU_USE_ML', '_SU_USE_DL']
+__all__ = ['_SU_USE_PLT', '_SU_USE_ML', '_SU_USE_DL', '_INSTALLED_PACKAGES']
 
 _PKGS_PLT = ['matplotlib', 'seaborn']
 _PKGS_ML = ['scikit-learn']
 _PKGS_DL = ['torch', 'tensorboard', 'transformers', 'sentence-transformers', 'spacy']
 
 
-_installed_pkgs = [(dist.metadata['Name'], dist.version) for dist in importlib.metadata.distributions()]
-_installed_pkgs = set([name for (name, ver) in _installed_pkgs])
+_INSTALLED_PACKAGES = [(dist.metadata['Name'], dist.version) for dist in importlib.metadata.distributions()]
+_INSTALLED_PACKAGES = set([name for (name, ver) in _INSTALLED_PACKAGES])
 
 
 def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expected_packages: List[str] = None) -> bool:
@@ -32,8 +32,8 @@ def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expecte
 
     if use:
         # check that the required packages for expected category of utility functions are in the environment
-        pkgs_found = [pkg for pkg in expected_packages if pkg in _installed_pkgs]
-        pkgs_missing = [pkg for pkg in expected_packages if pkg not in _installed_pkgs]
+        pkgs_found = [pkg for pkg in expected_packages if pkg in _INSTALLED_PACKAGES]
+        pkgs_missing = [pkg for pkg in expected_packages if pkg not in _INSTALLED_PACKAGES]
         if len(pkgs_missing) > 0:
 
             if len(expected_packages) > 1:

@@ -7,8 +7,6 @@ import json
 from os.path import join as os_join
 from typing import List, Dict, Union
 
-import matplotlib.pyplot as plt
-
 from stefutil.container import get
 from stefutil.prettier import now, ca, get_logger, pl
 
@@ -110,6 +108,11 @@ class PathUtil:
         :param time_args: `now` arguments
         """
         if save:
+            try:
+                import matplotlib.pyplot as plt
+            except ImportError:
+                raise ImportError('`matplotlib` not found in the environment. Please install the package.')
+
             args = dict(fmt='short-full', for_path=True)
             if time_args is not None:  # for python3.8 compatibility
                 args.update(time_args)
