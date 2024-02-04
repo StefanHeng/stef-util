@@ -26,7 +26,7 @@ from stefutil.primitive import *
 
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal',
-    'MyIceCreamDebugger', 'mic',
+    'MyIceCreamDebugger', 'sic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'get_logging_handler', 'get_logger', 'add_file_handler',
@@ -104,6 +104,20 @@ def ordinal(n: int) -> str:
     return str(n) + suffix
 
 
+def round_f(x, decimal: int = 2):
+    assert isinstance(x, float)
+    return round(x, decimal)
+
+
+def fmt_e(x, decimal: int = 3) -> str:
+    assert isinstance(x, float)
+    return f'{x:.{decimal}e}'
+
+
+def to_percent(x, decimal: int = 2):
+    return round(x * 100, decimal)
+
+
 class MyIceCreamDebugger(IceCreamDebugger):
     def __init__(self, output_width: int = 120, **kwargs):
         self._output_width = output_width
@@ -123,7 +137,7 @@ class MyIceCreamDebugger(IceCreamDebugger):
             self.argToStringFunction = lambda x: pprint.pformat(x, width=value)
 
 
-mic = MyIceCreamDebugger()
+sic = MyIceCreamDebugger()
 
 
 @dataclass
@@ -765,10 +779,10 @@ if __name__ == '__main__':
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
-        mic(d)
+        sic(d)
         print(pl.i(d))
         print(pl.nc(d))
-        mic(pl.i(d), pl.nc(d))
+        sic(pl.i(d), pl.nc(d))
     # check_nested_log_dict()
 
     def check_logger():
@@ -777,9 +791,9 @@ if __name__ == '__main__':
     # check_logger()
 
     def check_now():
-        mic(now(fmt='full'))
-        mic(now(fmt='date'))
-        mic(now(fmt='short-date'))
+        sic(now(fmt='full'))
+        sic(now(fmt='date'))
+        sic(now(fmt='short-date'))
     # check_now()
 
     def check_ca():
@@ -799,9 +813,9 @@ if __name__ == '__main__':
         import datetime
         now_ = datetime.datetime.now()
         last_day = now_ - datetime.timedelta(days=1, hours=1, minutes=1, seconds=1)
-        mic(now_, last_day)
+        sic(now_, last_day)
         diff = now_ - last_day
-        mic(diff, fmt_delta(diff))
+        sic(diff, fmt_delta(diff))
     # check_time_delta()
 
     def check_float_pad():
@@ -813,7 +827,7 @@ if __name__ == '__main__':
     # check_float_pad()
 
     def check_ordinal():
-        mic([ordinal(n) for n in range(1, 32)])
+        sic([ordinal(n) for n in range(1, 32)])
     # check_ordinal()
 
     def check_color_now():
@@ -832,7 +846,7 @@ if __name__ == '__main__':
     # check_omit_none()
 
     def check_both_handler():
-        # mic('now creating handler')
+        # sic('now creating handler')
         print('now creating handler')
         # logger = get_logger('test-both', kind='stdout')
         logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
@@ -843,15 +857,15 @@ if __name__ == '__main__':
 
     def check_prettier():
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
-        mic(mp.single(key='global_step', val=4))
-        mic(mp.single(key='step', val=2))
+        sic(mp.single(key='global_step', val=4))
+        sic(mp.single(key='step', val=2))
     # check_prettier()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
-        mic(pl.pa(d))
-        mic(pl.pa(d, ))
-        mic(pl.pa(d, shorter_bool=False))
+        sic(pl.pa(d))
+        sic(pl.pa(d, ))
+        sic(pl.pa(d, shorter_bool=False))
     # check_pa()
 
     def check_log_i():
@@ -863,24 +877,24 @@ if __name__ == '__main__':
 
     def check_log_i_float_pad():
         d = {'location': 90.6, 'miscellaneous': 35.0, 'organization': 54.2, 'person': 58.7}
-        mic(d)
+        sic(d)
         print(pl.i(d))
         print(pl.i(d, pad_float=False))
     # check_log_i_float_pad()
 
     def check_now():
-        mic(now(for_path=True, fmt='short-date'))
-        mic(now(for_path=True, fmt='date'))
-        mic(now(for_path=True, fmt='full'))
-        mic(now(for_path=True, fmt='short-full'))
+        sic(now(for_path=True, fmt='short-date'))
+        sic(now(for_path=True, fmt='date'))
+        sic(now(for_path=True, fmt='full'))
+        sic(now(for_path=True, fmt='short-full'))
     # check_now()
 
     def check_sci():
         num = 3e-5
         f1 = 84.7
-        mic(num, str(num))
+        sic(num, str(num))
         d = dict(md='bla', num=num, f1=f1)
-        mic(pl.pa(d))
+        sic(pl.pa(d))
         print(pl.i(d))
         print(pl.i(num))
     # check_sci()

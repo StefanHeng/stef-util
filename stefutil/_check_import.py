@@ -13,15 +13,11 @@ from typing import List
 from stefutil.prettier import *
 
 
-__all__ = ['_SU_USE_PLT', '_SU_USE_ML', '_SU_USE_DL', '_INSTALLED_PACKAGES']
+__all__ = ['_use_plot', '_use_ml', '_use_dl']
 
 _PKGS_PLT = ['matplotlib', 'seaborn']
 _PKGS_ML = ['scikit-learn']
 _PKGS_DL = ['torch', 'tensorboard', 'transformers', 'sentence-transformers', 'spacy']
-
-
-_INSTALLED_PACKAGES = [(dist.metadata['Name'], dist.version) for dist in importlib.metadata.distributions()]
-_INSTALLED_PACKAGES = set([name for (name, ver) in _INSTALLED_PACKAGES])
 
 
 def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expected_packages: List[str] = None) -> bool:
@@ -31,9 +27,14 @@ def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expecte
     use = flag in ['True', 'T']
 
     if use:
+        # lazy check to save time
+        if not hasattr(check_use, '_INSTALLED_PACKAGES'):
+            pkgs = [(dist.metadata['Name'], dist.version) for dist in importlib.metadata.distributions()]
+            check_use.INSTALLED_PACKAGES = set([name for (name, ver) in pkgs])
+
         # check that the required packages for expected category of utility functions are in the environment
-        pkgs_found = [pkg for pkg in expected_packages if pkg in _INSTALLED_PACKAGES]
-        pkgs_missing = [pkg for pkg in expected_packages if pkg not in _INSTALLED_PACKAGES]
+        pkgs_found = [pkg for pkg in expected_packages if pkg in check_use.INSTALLED_PACKAGES]
+        pkgs_missing = [pkg for pkg in expected_packages if pkg not in check_use.INSTALLED_PACKAGES]
         if len(pkgs_missing) > 0:
 
             if len(expected_packages) > 1:
@@ -47,6 +48,13 @@ def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expecte
     return use
 
 
-_SU_USE_PLT = check_use(flag_name='SU_USE_PLT', desc='Plotting', expected_packages=_PKGS_PLT)
-_SU_USE_ML = check_use(flag_name='SU_USE_ML', desc='Machine Learning', expected_packages=_PKGS_ML)
-_SU_USE_DL = check_use(flag_name='SU_USE_DL', desc='Deep Learning', expected_packages=_PKGS_DL)
+def _use_plot():
+    return check_use(flag_name='SU_USE_PLT', desc='Plotting', expected_packages=_PKGS_PLT)
+
+
+def _use_ml():
+    return check_use(flag_name='SU_USE_ML', desc='Machine Learning', expected_packages=_PKGS_ML)
+
+
+def _use_dl():
+    return check_use(flag_name='SU_USE_DL', desc='Deep Learning', expected_packages=_PKGS_DL)

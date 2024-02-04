@@ -52,8 +52,8 @@ An incomplete list of features.
 [`IceCream`](https://github.com/gruns/icecream) debugging print with custom output width, intended for various terminal sizes. 
 
 ```python
-from stefutil import mic
-mic.output_width = 256 
+from stefutil import sic
+sic.output_width = 256 
 ```
 
 

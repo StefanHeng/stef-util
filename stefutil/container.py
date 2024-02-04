@@ -12,7 +12,7 @@ import pandas as pd
 from pandas.api.types import CategoricalDtype
 
 from stefutil.prettier import pl
-from stefutil._check_import import _SU_USE_DL
+from stefutil._check_import import _use_dl
 
 
 __all__ = [
@@ -22,8 +22,7 @@ __all__ = [
 ]
 
 
-if _SU_USE_DL:
-    import torch
+if _use_dl():
     __all__ += ['pt_sample']
 
 
@@ -182,7 +181,7 @@ def df_col2cat_col(df: pd.DataFrame, col_name: str, categories: List[str]) -> pd
     return df
 
 
-if _SU_USE_DL:
+if _use_dl():
     def pt_sample(d: Dict[K, Union[float, Any]]) -> K:
         """
         Sample a key from a dict based on confidence score as value
@@ -190,6 +189,7 @@ if _SU_USE_DL:
 
         Internally uses `torch.multinomial`
         """
+        import torch  # lazy import to save time
         d_keys = {k: v for k, v in d.items() if v}  # filter out `None`s
         keys, weights = zip(*d_keys.items())
         return keys[torch.multinomial(torch.tensor(weights), 1, replacement=True).item()]

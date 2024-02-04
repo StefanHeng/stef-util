@@ -15,13 +15,13 @@ from stefutil.prettier import ca
 from stefutil.container import df_col2cat_col
 
 
-from stefutil._check_import import _SU_USE_PLT, _SU_USE_ML
+from stefutil._check_import import _use_plot, _use_ml
 
 
 __all__ = []
 
 
-if _SU_USE_PLT:
+if _use_plot():
     import matplotlib.pyplot as plt
     import seaborn as sns
     from matplotlib.patches import Ellipse
@@ -118,7 +118,7 @@ if _SU_USE_PLT:
             df['x'], df['y'] = df[x], df[y]
         else:
             df = pd.DataFrame([dict(x=x_, y=y_) for x_, y_ in zip(x, y)])
-            x_order = x
+            x_order = list(x)
         if x_order is not None:
             x_order: List[str]
             df_col2cat_col(df, 'x', categories=x_order)
@@ -168,7 +168,7 @@ if _SU_USE_PLT:
         ellipse.set_transform(tsf + ax_.transData)
         return ax_.add_patch(ellipse)
 
-    if _SU_USE_ML:
+    if _use_ml():
         from sklearn.manifold import TSNE
 
         __all__ += ['VecProjOutput', 'vector_projection_plot']

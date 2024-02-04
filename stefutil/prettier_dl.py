@@ -9,14 +9,13 @@ from collections.abc import Sized
 from tqdm.auto import tqdm
 
 from stefutil.prettier import *
-from stefutil._check_import import _SU_USE_DL
+from stefutil._check_import import _use_dl
 
 
 __all__ = ['MlPrettier']
 
 
-if _SU_USE_DL:
-    from torch.utils.tensorboard import SummaryWriter
+if _use_dl():
     from transformers import Trainer, TrainerCallback
 
     __all__ += ['MyProgressCallback', 'LogStep']
@@ -107,7 +106,7 @@ class MlPrettier:
             return {f'{split}/{k}' if self.should_add_split_prefix(k) else k: v for k, v in d.items()}
 
 
-if _SU_USE_DL:
+if _use_dl():
     class MyProgressCallback(TrainerCallback):
         """
         My modification to the HF progress callback
@@ -206,7 +205,7 @@ if _SU_USE_DL:
         def __init__(
                 self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
                 logger: logging.Logger = None, file_logger: Union[logging.Logger, bool] = None,
-                tb_writer: SummaryWriter = None, trainer_with_tqdm: bool = True,
+                tb_writer = None, trainer_with_tqdm: bool = True,
                 global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_split: bool = False
         ):
             self.trainer = trainer
@@ -230,7 +229,7 @@ if _SU_USE_DL:
                 self.logger_logs_file = True
             elif isinstance(file_logger, logging.Logger):
                 self.file_logger = file_logger
-            self.tb_writer = tb_writer
+            self.tb_writer = tb_writer  # a `torch.utils.tensorboard.SummaryWriter` or a `tensorboardX.SummaryWriter`
 
             self.global_step_with_epoch = global_step_with_epoch
             self.prettier_console = prettier_console

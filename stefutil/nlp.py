@@ -7,17 +7,15 @@ from tqdm import tqdm
 
 from stefutil.container import *
 from stefutil.prettier import *
-from stefutil._check_import import _SU_USE_DL
+from stefutil._check_import import _use_dl
 
 
 __all__ = ['punc_tokenize']
 
 
-if _SU_USE_DL:
+if _use_dl():
     __all__ += ['TextPreprocessor', 'SbertEncoder']
 
-    import torch
-    from sentence_transformers import SentenceTransformer
     import spacy
     from spacy.tokens import Doc
 
@@ -37,7 +35,7 @@ def punc_tokenize(sentence: str) -> List[str]:
     return _pattern_term.findall(sentence)
 
 
-if _SU_USE_DL:
+if _use_dl():
     class TextPreprocessor:
         """
         Pre-process documents in to lists of tokens
@@ -59,7 +57,7 @@ if _SU_USE_DL:
         ]
         # from spacy import glossary
         # tag_name = 'ADV'
-        # mic(glossary.explain(tag_name))
+        # sic(glossary.explain(tag_name))
         # definitions linked in the source code https://github.com/explosion/spaCy/blob/master/spacy/glossary.py
         # http://universaldependencies.org/u/pos/
 
@@ -127,6 +125,9 @@ if _SU_USE_DL:
         @property
         def model(self):
             if self.model_name not in SbertEncoder.model_name2model:
+                import torch  # lazy import to save time
+                from sentence_transformers import SentenceTransformer
+
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 SbertEncoder.model_name2model[self.model_name] = SentenceTransformer(self.model_name, device=device)
             return SbertEncoder.model_name2model[self.model_name]
@@ -149,14 +150,14 @@ if _SU_USE_DL:
 
 
 if __name__ == '__main__':
-    from stefutil.prettier import mic
+    from stefutil.prettier import sic
 
     def check_process():
         tp = TextPreprocessor()
 
         docs = ['hello world', 'japan-soccer.']
         lst_toks = tp(docs)
-        mic(lst_toks)
+        sic(lst_toks)
 
-        mic(tp.process_single('hello world'))
+        sic(tp.process_single('hello world'))
     check_process()

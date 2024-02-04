@@ -268,7 +268,7 @@ if DEV:
     import time
     import random
 
-    from stefutil.prettier import pl, mic, get_logger
+    from stefutil.prettier import pl, sic, get_logger
 
     logger = get_logger('Conc Dev')
 
@@ -301,7 +301,7 @@ if __name__ == '__main__':
         futures = [executor.submit(_work, a) for a in args]
         for f in concurrent.futures.as_completed(futures):
             res = f.result()
-            mic(res)
+            sic(res)
     # try_concurrent_yield()
 
     def check_conc_yield():
@@ -321,7 +321,7 @@ if __name__ == '__main__':
         mode = 'process'
         # mode = 'thread'
         for res in conc_yield(fn=_work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
-            mic(res)
+            sic(res)
     # check_conc_yield()
 
     def test_conc_mem_use():

@@ -9,13 +9,13 @@ from typing import Tuple, Dict, Union, Iterable
 import pandas as pd
 
 from stefutil.prettier import fmt_num, fmt_sizeof, ca
-from stefutil._check_import import _SU_USE_ML, _SU_USE_DL
+from stefutil._check_import import _use_ml, _use_dl
 
 
 __all__ = ['is_on_colab']
 
 
-if _SU_USE_DL:
+if _use_dl():
     import torch
 
     __all__ += [
@@ -88,14 +88,13 @@ def is_on_colab() -> bool:
     return 'google.colab' in sys.modules
 
 
-if _SU_USE_ML:
-    from sklearn.metrics import classification_report
-
+if _use_ml():
     __all__ += ['eval_array2report_df']
 
     def eval_array2report_df(
             labels: Iterable, preds: Iterable, report_args: Dict = None, pretty: bool = True
     ) -> Tuple[pd.DataFrame, float]:
+        from sklearn.metrics import classification_report  # lazy import to save time
         report = classification_report(labels, preds, **(report_args or dict()))
         if 'accuracy' in report:
             acc = report['accuracy']
