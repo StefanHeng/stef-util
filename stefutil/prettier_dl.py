@@ -205,7 +205,7 @@ if _use_dl():
         def __init__(
                 self, trainer: Trainer = None, pbar: tqdm = None, prettier: MlPrettier = None,
                 logger: logging.Logger = None, file_logger: Union[logging.Logger, bool] = None,
-                tb_writer = None, trainer_with_tqdm: bool = True,
+                tb_writer=None, trainer_with_tqdm: bool = True,
                 global_step_with_epoch: bool = True, prettier_console: bool = False, console_with_split: bool = False
         ):
             self.trainer = trainer
@@ -303,3 +303,11 @@ if _use_dl():
                     # if `to_console` is true, already logged to file too
                     extra = dict(block='stdout')  # blocks logging to console
                     self.logger.info(msg, extra=extra)
+
+
+if __name__ == '__main__':
+    def check_prettier():
+        mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
+        sic(mp.single(key='global_step', val=4))
+        sic(mp.single(key='step', val=2))
+    check_prettier()

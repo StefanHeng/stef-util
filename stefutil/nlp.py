@@ -1,8 +1,7 @@
 import re
 import math
-from typing import List, Union
+from typing import List, Union, Any
 
-import numpy as np
 from tqdm import tqdm
 
 from stefutil.container import *
@@ -15,9 +14,6 @@ __all__ = ['punc_tokenize']
 
 if _use_dl():
     __all__ += ['TextPreprocessor', 'SbertEncoder']
-
-    import spacy
-    from spacy.tokens import Doc
 
 
 _logger = get_logger(__name__)
@@ -67,6 +63,7 @@ if _use_dl():
             ca.check_mismatch(display_name='Tokenization Scheme', val=tokenize_scheme, accepted_values=['word', '2-gram', 'chunk'])
             self.tokenize_scheme = tokenize_scheme
 
+            import spacy  # lazy import to save time
             if prefer_gpu:
                 spacy.prefer_gpu()
             if TextPreprocessor.nlp is None:
@@ -85,6 +82,7 @@ if _use_dl():
             return ret
 
         def __call__(self, texts: List[str]) -> List[List[str]]:
+            import numpy as np  # lazy import to save time
             assert isinstance(texts, list) and len(texts) > 0
             avg_tok_len = round(np.mean([len(punc_tokenize(sent)) for sent in texts]), 2)
             ret = []
@@ -98,7 +96,9 @@ if _use_dl():
                 _logger.info(f'Preprocessing finished w/ average token length {pl.i(avg_tok_len)} => {pl.i(avg_tok_len_)}')
             return ret
 
-        def process_single(self, text: Union[str, Doc]) -> List[str]:
+        def process_single(self, text: Union[str, Any]) -> List[str]:
+            from spacy.tokens import Doc
+            text: Union[str, Doc]
             doc = self.nlp(text) if isinstance(text, str) else text
 
             # doc on attributes of a token at https://spacy.io/api/token
@@ -132,12 +132,13 @@ if _use_dl():
                 SbertEncoder.model_name2model[self.model_name] = SentenceTransformer(self.model_name, device=device)
             return SbertEncoder.model_name2model[self.model_name]
 
-        def __call__(self, texts: List[str], batch_size: int = 32, desc: str = None) -> np.ndarray:
+        def __call__(self, texts: List[str], batch_size: int = 32, desc: str = None):
             """
             :param texts: List of texts to encode
             :param batch_size: encode batch size
             :param desc: description for tqdm
             """
+            import numpy as np  # lazy import to save time
             n, bsz = len(texts), batch_size
             n_ba = math.ceil(n / bsz)
 

@@ -16,7 +16,6 @@ from pygments import highlight, lexers, formatters
 from dataclasses import dataclass
 from collections import OrderedDict
 
-import pandas as pd
 import sty
 import colorama
 from icecream import IceCreamDebugger
@@ -26,6 +25,7 @@ from stefutil.primitive import *
 
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
+    'set_pd_style',
     'MyIceCreamDebugger', 'sic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
@@ -36,11 +36,13 @@ __all__ = [
 ]
 
 
-pd.set_option('expand_frame_repr', False)
-pd.set_option('display.precision', 2)
-pd.set_option('max_colwidth', 40)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.min_rows', 16)
+def set_pd_style():
+    import pandas as pd  # lazy import to save time
+    pd.set_option('expand_frame_repr', False)
+    pd.set_option('display.precision', 2)
+    pd.set_option('max_colwidth', 40)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.min_rows', 16)
 
 
 def fmt_num(num: Union[float, int], suffix: str = '') -> str:
@@ -794,6 +796,10 @@ if __name__ == '__main__':
         sic(now(fmt='full'))
         sic(now(fmt='date'))
         sic(now(fmt='short-date'))
+        sic(now(for_path=True, fmt='short-date'))
+        sic(now(for_path=True, fmt='date'))
+        sic(now(for_path=True, fmt='full'))
+        sic(now(for_path=True, fmt='short-full'))
     # check_now()
 
     def check_ca():
@@ -855,12 +861,6 @@ if __name__ == '__main__':
         logger.info('only to file', extra=dict(block='stdout'))
     # check_both_handler()
 
-    def check_prettier():
-        mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
-        sic(mp.single(key='global_step', val=4))
-        sic(mp.single(key='step', val=2))
-    # check_prettier()
-
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
         sic(pl.pa(d))
@@ -881,13 +881,6 @@ if __name__ == '__main__':
         print(pl.i(d))
         print(pl.i(d, pad_float=False))
     # check_log_i_float_pad()
-
-    def check_now():
-        sic(now(for_path=True, fmt='short-date'))
-        sic(now(for_path=True, fmt='date'))
-        sic(now(for_path=True, fmt='full'))
-        sic(now(for_path=True, fmt='short-full'))
-    # check_now()
 
     def check_sci():
         num = 3e-5

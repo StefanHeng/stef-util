@@ -8,9 +8,6 @@ import math
 from typing import List, Dict, Iterable, Callable, Any, Union
 from dataclasses import dataclass
 
-import numpy as np
-import pandas as pd
-
 from stefutil.prettier import ca
 from stefutil.container import df_col2cat_col
 
@@ -22,6 +19,8 @@ __all__ = []
 
 
 if _use_plot():
+    import numpy as np
+    import pandas as pd
     import matplotlib.pyplot as plt
     import seaborn as sns
     from matplotlib.patches import Ellipse
@@ -169,8 +168,6 @@ if _use_plot():
         return ax_.add_patch(ellipse)
 
     if _use_ml():
-        from sklearn.manifold import TSNE
-
         __all__ += ['VecProjOutput', 'vector_projection_plot']
 
         @dataclass
@@ -199,6 +196,7 @@ if _use_plot():
             vects = np.concatenate(list(name2vectors.values()), axis=0)
             tsne_args_ = dict(n_components=2, perplexity=50, random_state=42)
             tsne_args_.update(tsne_args or dict())
+            from sklearn.manifold import TSNE  # lazy import to save time
             vects_reduced = TSNE(**tsne_args_).fit_transform(vects)
             setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
             df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})

@@ -8,7 +8,6 @@ import os
 import concurrent.futures
 from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
 
-import numpy as np
 from tqdm.std import tqdm as std_tqdm  # root for type check
 from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
@@ -97,7 +96,7 @@ class BatchedMap:
 
 def batched_conc_map(
         fn: Union[MapFn, BatchedMapFn],
-        args: Union[Iterable[T], List[T], np.array], n: int = None, n_worker: int = os.cpu_count(),
+        args: Union[Iterable[T], List[T]], n: int = None, n_worker: int = os.cpu_count(),
         batch_size: int = None,
         with_tqdm: Union[bool, dict, tqdm] = False,
         is_batched_fn: bool = False,

@@ -4,9 +4,7 @@ machine learning
 
 import sys
 import math
-from typing import Tuple, Dict, Union, Iterable
-
-import pandas as pd
+from typing import Tuple, Dict, Union, Iterable, Any
 
 from stefutil.prettier import fmt_num, fmt_sizeof, ca
 from stefutil._check_import import _use_ml, _use_dl
@@ -93,8 +91,9 @@ if _use_ml():
 
     def eval_array2report_df(
             labels: Iterable, preds: Iterable, report_args: Dict = None, pretty: bool = True
-    ) -> Tuple[pd.DataFrame, float]:
-        from sklearn.metrics import classification_report  # lazy import to save time
+    ) -> Tuple[Any, float]:
+        import pandas as pd  # lazy import to save time
+        from sklearn.metrics import classification_report
         report = classification_report(labels, preds, **(report_args or dict()))
         if 'accuracy' in report:
             acc = report['accuracy']
