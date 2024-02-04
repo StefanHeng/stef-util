@@ -25,7 +25,7 @@ from stefutil.primitive import *
 
 
 __all__ = [
-    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal',
+    'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
     'MyIceCreamDebugger', 'sic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
