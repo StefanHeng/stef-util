@@ -21,14 +21,19 @@ _logger = get_logger(__name__)
 
 # _pattern_space = re.compile(r'\s+')  # match one or more whitespace
 _pattern_term = re.compile(r'\w+|[^\s\w]+')  # match one or more alphanumeric or non-whitespace-non-alphanumeric
+_pattern_term_split = re.compile(r'(\w+|[^\s\w])')  # adjacent punctuations are separate tokens
 
 
-def punc_tokenize(sentence: str) -> List[str]:
+def punc_tokenize(sentence: str, split_adjacent_puncs: bool = True) -> List[str]:
     """
     Split sentence into tokens, split on any punctuation or whitespace
         e.g. `SOCCER-JAPAN` => [`SOCCER`, `-`, `JAPAN`]
+
+    :param sentence: sentence to tokenize
+    :param split_adjacent_puncs: whether to split adjacent punctuations into separate tokens
     """
-    return _pattern_term.findall(sentence)
+    pat = _pattern_term_split if split_adjacent_puncs else _pattern_term
+    return pat.findall(sentence)
 
 
 if _use_dl():
@@ -161,4 +166,9 @@ if __name__ == '__main__':
         sic(lst_toks)
 
         sic(tp.process_single('hello world'))
-    check_process()
+    # check_process()
+
+    def check_punc_tokenize():
+        s = 'Are there any romantic movies from the 90s on Disney+?'
+        sic(punc_tokenize(s))
+    check_punc_tokenize()
