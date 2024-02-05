@@ -88,7 +88,7 @@ class PathUtil:
                 dirs = makedirs
             dir2path = dict(dataset=self.dset_path, model=self.model_path, plot=self.plot_path, eval=self.eval_path)
             for dir_ in dirs:
-                ca.check_mismatch(display_name='Directories to create', val=dir_, accepted_values=dirs_list)
+                ca.assert_options(display_name='Directories to create', val=dir_, options=dirs_list)
                 path = dir2path[dir_]
                 if not os.path.exists(path):
                     os.makedirs(path)

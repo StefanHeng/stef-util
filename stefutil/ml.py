@@ -42,7 +42,7 @@ if _use_dl():
         """
         Edited from `PeftModel.get_trainable_parameters`
         """
-        ca.check_mismatch('#Param Format', fmt, ['int', 'str'])
+        ca.assert_options('#Param Format', fmt, ['int', 'str'])
 
         trainable_params = 0
         all_param = 0
@@ -68,7 +68,7 @@ if _use_dl():
 
 
     def get_model_size(model: torch.nn.Module, fmt='str', all_only: bool = True):
-        ca.check_mismatch('Size Format', fmt, ['int', 'str'])
+        ca.assert_options('Size Format', fmt, ['int', 'str'])
 
         param_size = sum(p.nelement() * p.element_size() for p in model.parameters())
         buffer_size = sum(b.nelement() * b.element_size() for b in model.buffers())

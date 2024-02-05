@@ -23,7 +23,7 @@ _PKGS_DL = ['torch', 'tensorboard', 'transformers', 'sentence-transformers', 'sp
 def check_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expected_packages: List[str] = None) -> bool:
     # Whether to use certain utilities, based on the environment variable `SU_USE_<type>`
     flag = os.environ.get(flag_name, 'True')  # by default, import all packages
-    ca.check_mismatch(display_name=f'`{flag_name}` Flag', val=flag, accepted_values=['True', 'False', 'T', 'F'])
+    ca.assert_options(display_name=f'`{flag_name}` Flag', val=flag, options=['True', 'False', 'T', 'F'])
     use = flag in ['True', 'T']
 
     if use:

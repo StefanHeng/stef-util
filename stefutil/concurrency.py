@@ -27,7 +27,7 @@ BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 
 def _check_conc_mode(mode: str):
-    ca.check_mismatch('Concurrency Mode', mode, ['thread', 'process'])
+    ca.assert_options('Concurrency Mode', mode, ['thread', 'process'])
 
 
 def conc_map(

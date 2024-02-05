@@ -690,9 +690,9 @@ class CheckArg:
         for k, v in kwargs.items():
             self.d_name2func[k](v)
 
-    def check_mismatch(
-            self, display_name: str, val: Optional[str], accepted_values: List[str], attribute_name: str = None
-    ):
+    def assert_options(
+            self, display_name: str, val: Optional[str], options: List[str], attribute_name: str = None, silent: bool = False
+    ) -> bool:
         if self.ignore_none and val is None:
             if self.verbose:
                 if attribute_name:
@@ -700,26 +700,30 @@ class CheckArg:
                 else:
                     s = pl.i(display_name)
                 CheckArg.logger.warning(f'Argument {s} is {pl.i("None")} and ignored')
-            return
+            return True
         if self.verbose:
-            d_log = dict(val=val, accepted_values=accepted_values)
+            d_log = dict(val=val, accepted_values=options)
             CheckArg.logger.info(f'Checking {pl.i(display_name)} w/ {pl.i(d_log)}... ')
-        if val not in accepted_values:
-            raise ValueError(f'Unexpected {pl.i(display_name)}: '
-                             f'expect one of {pl.i(accepted_values)}, got {pl.i(val)}')
+        if val not in options:
+            if silent:
+                return False
+            else:
+                raise ValueError(f'Unexpected {pl.i(display_name)}: expect one of {pl.i(options)}, got {pl.i(val)}')
+        else:
+            return True
 
-    def cache_mismatch(self, display_name: str, attr_name: str, accepted_values: List[str]):
-        self.d_name2func[attr_name] = lambda x: self.check_mismatch(display_name, x, accepted_values, attr_name)
+    def cache_options(self, display_name: str, attr_name: str, accepted_values: List[str]):
+        self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, accepted_values, attr_name)
 
 
 ca = CheckArg()
-ca.cache_mismatch(  # See `stefutil::plot.py`
+ca.cache_options(  # See `stefutil::plot.py`
     'Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal']
 )
 
 
 def now(
-        as_str=True, for_path=False, fmt: str = 'full', color: Union[bool, str] = False
+        as_str=True, for_path=False, fmt: str = 'short-full', color: Union[bool, str] = False
 ) -> Union[datetime.datetime, str]:
     """
     # Considering file output path
@@ -735,7 +739,7 @@ def now(
     d = datetime.datetime.now()
 
     if as_str:
-        ca.check_mismatch('Date Format', fmt, ['full', 'short-full', 'date', 'short-date'])
+        ca.assert_options('Date Format', fmt, ['full', 'short-full', 'date', 'short-date'])
         if 'full' in fmt:
             fmt_tm = '%Y-%m-%d_%H-%M-%S' if for_path else '%Y-%m-%d %H:%M:%S.%f'
         else:
@@ -809,10 +813,10 @@ if __name__ == '__main__':
 
     def check_ca_warn():
         ca_ = CheckArg(verbose=True)
-        ca_.cache_mismatch(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
+        ca_.cache_options(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
         ca_(test='a')
         ca_(test=None)
-        ca_.check_mismatch('Blah', None, ['hah', 'does not matter'])
+        ca_.assert_options('Blah', None, ['hah', 'does not matter'])
     # check_ca_warn()
 
     def check_time_delta():

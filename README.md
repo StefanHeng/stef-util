@@ -25,7 +25,7 @@ save_fig = _sutil.save_fig
 # Now you can call `sconfig` and `save_fig`
 
 # Set argument "enum" checks
-ca.cache_mismatch('Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal'])
+ca.cache_options('Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal'])
 # Now you can call `ca` like so:
 ori = 'v'
 ca(bar_orient=ori)

@@ -257,7 +257,7 @@ if _use_dl():
                     training = self.trainer.model.training
                 split_str = 'train' if training else 'eval'
             else:
-                ca.check_mismatch('Train Mode', split, ['train', 'eval', 'dev', 'test'])
+                ca.assert_options('Train Mode', split, ['train', 'eval', 'dev', 'test'])
                 training = split == 'train'
                 split_str = split
             d_log_p = self.prettier(d_log) if self.prettier else d_log
