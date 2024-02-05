@@ -712,13 +712,13 @@ class CheckArg:
         else:
             return True
 
-    def cache_options(self, display_name: str, attr_name: str, accepted_values: List[str]):
-        self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, accepted_values, attr_name)
+    def cache_options(self, display_name: str, attr_name: str, options: List[str]):
+        self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, options, attr_name)
 
 
 ca = CheckArg()
 ca.cache_options(  # See `stefutil::plot.py`
-    'Bar Plot Orientation', attr_name='bar_orient', accepted_values=['v', 'h', 'vertical', 'horizontal']
+    'Bar Plot Orientation', attr_name='bar_orient', options=['v', 'h', 'vertical', 'horizontal']
 )
 
 
@@ -813,7 +813,7 @@ if __name__ == '__main__':
 
     def check_ca_warn():
         ca_ = CheckArg(verbose=True)
-        ca_.cache_options(display_name='Disp Test', attr_name='test', accepted_values=['a', 'b'])
+        ca_.cache_options(display_name='Disp Test', attr_name='test', options=['a', 'b'])
         ca_(test='a')
         ca_(test=None)
         ca_.assert_options('Blah', None, ['hah', 'does not matter'])
