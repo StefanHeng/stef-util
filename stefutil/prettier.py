@@ -29,7 +29,8 @@ __all__ = [
     'MyIceCreamDebugger', 'sic',
     'PrettyLogger', 'pl',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'get_logging_handler', 'get_logger', 'add_file_handler',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler'
+    , 'get_logging_handler', 'get_logger', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
     'now'
@@ -116,8 +117,11 @@ def fmt_e(x, decimal: int = 3) -> str:
     return f'{x:.{decimal}e}'
 
 
-def to_percent(x, decimal: int = 2):
-    return round(x * 100, decimal)
+def to_percent(x, decimal: int = 2, append_char: str = '%') -> Union[str, float]:
+    ret = round(x * 100, decimal)
+    if append_char is not None:
+        ret = f'{ret}{append_char}'
+    return ret
 
 
 class MyIceCreamDebugger(IceCreamDebugger):
@@ -152,7 +156,7 @@ class AdjustIndentOutput:
 def _adjust_indentation(prefix: str = None, postfix: str = None, sep: str = None, indent: int = None) -> AdjustIndentOutput:
     idt = "\t" * indent
     pref = f'{prefix}\n{idt}'
-    sep = f'{sep}\n{idt}'
+    sep = f'{sep.strip()}\n{idt}'
     idt = "\t" * (indent - 1)
     post = f'\n{idt}{postfix}'
     return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
@@ -643,6 +647,20 @@ def add_file_handler(logger: logging.Logger, file_path: str):
     return logger
 
 
+def drop_file_handler(logger: logging.Logger):
+    """
+    Removes all `FileHandler`s from the logger
+    """
+    rmv = []
+    for h in logger.handlers:
+        if isinstance(h, logging.FileHandler):
+            logger.removeHandler(h)
+            rmv.append(h)
+    if len(rmv) > 0:
+        logger.info(f'Handlers {pl.i(rmv)} removed')
+    return logger
+
+
 class Timer:
     """
     Counts elapsed time and report in a pretty format
@@ -713,7 +731,11 @@ class CheckArg:
             return True
 
     def cache_options(self, display_name: str, attr_name: str, options: List[str]):
+        if attr_name in self.d_name2func:
+            raise ValueError(f'Attribute name {pl.i(attr_name)} already exists')
         self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, options, attr_name)
+        # set a custom attribute for `attr_name` as the list of options
+        setattr(self, attr_name, options)
 
 
 ca = CheckArg()
