@@ -96,7 +96,8 @@ class PathUtil:
                         logger.info(f'Created directory {pl.i(path)}')
 
     def save_fig(
-            self, title: str = None, save: bool = True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None
+            self, title: str = None, save: bool = True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None,
+            fmt: str = 'png', **kwargs
     ):
         """
         :param title: Rendered figure title
@@ -106,6 +107,7 @@ class PathUtil:
             Otherwise, timestamp is appended to the end
         :param save_path: disk path to save figure
         :param time_args: `now` arguments
+        :param fmt: file format
         """
         if save:
             try:
@@ -130,7 +132,11 @@ class PathUtil:
             else:
                 fnm = f'{title}, {t}.png'
             path = os_join((save_path or self.plot_path), fnm)
-            plt.savefig(path, dpi=300)
+            args = dict(fmt=fmt)
+            if fmt == 'png':
+                args['dpi'] = 300
+            args.update(kwargs)
+            plt.savefig(path, **args)
             if self.verbose:
                 d_log = dict(title=title, path=path)
                 logger.info(f'Saved figure w/ {pl.i(d_log)}')
