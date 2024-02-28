@@ -128,11 +128,12 @@ class PathUtil:
                 raise ValueError(f'Invalid title {pl.i(title)} for containing [{pl.i("/")}]')
 
             if prefix_time:
-                fnm = f'{t}_{title}.png'
+                fnm = f'{t}_{title}'
             else:
-                fnm = f'{title}, {t}.png'
+                fnm = f'{title}, {t}'
+            fnm = f'{fnm}.{fmt}'
             path = os_join((save_path or self.plot_path), fnm)
-            args = dict(fmt=fmt)
+            args = dict(format=fmt)
             if fmt == 'png':
                 args['dpi'] = 300
             args.update(kwargs)
