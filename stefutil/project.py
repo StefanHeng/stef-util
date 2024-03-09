@@ -8,6 +8,7 @@ from os.path import join as os_join
 from typing import List, Dict, Union
 
 from stefutil.container import get
+from stefutil.os_n_file import stem
 from stefutil.prettier import now, ca, get_logger, pl
 
 
@@ -139,5 +140,4 @@ class PathUtil:
             args.update(kwargs)
             plt.savefig(path, **args)
             if self.verbose:
-                d_log = dict(title=title, path=path)
-                logger.info(f'Saved figure w/ {pl.i(d_log)}')
+                logger.info(f'Saved figure to {pl.i(stem(path, top_n=2))}')

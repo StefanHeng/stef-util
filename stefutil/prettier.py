@@ -402,6 +402,8 @@ class PrettyLogger:
         for k, v_ in d.items():
             if align == 'curr' and max_c is not None:
                 k = f'{k:<{max_c}}'
+            # no coloring, but still try to make it more compact, e.g. string tuple processing
+            k = PrettyLogger.i(k, with_color=False, for_path=for_path)
             if omit_none_val and v_ is None:
                 pairs.append(k)
             else:
@@ -973,4 +975,11 @@ if __name__ == '__main__':
             (d3, 2)
         ]:
             print(pl.i(d, align_keys=aln, indent=True))
-    check_align_edge()
+    # check_align_edge()
+
+    def check_dict_tup_key():
+        d = {(1, 2): 3, ('foo', 'bar'): 4}
+        print(pl.i(d))
+        d = dict(a=1, b=2)
+        print(pl.i(d))
+    check_dict_tup_key()
