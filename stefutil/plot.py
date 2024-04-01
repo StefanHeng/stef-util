@@ -5,10 +5,11 @@ see also `StefUtil.save_fig`
 """
 
 import math
+import logging
 from typing import List, Dict, Iterable, Callable, Any, Union
 from dataclasses import dataclass
 
-from stefutil.prettier import ca
+from stefutil.prettier import pl, ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
 
 
@@ -16,6 +17,9 @@ from stefutil._check_import import _use_plot, _use_ml
 
 
 __all__ = []
+
+
+_logger = get_logger(__name__)
 
 
 if _use_plot():
@@ -180,7 +184,7 @@ if _use_plot():
                 name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup',
                 ellipse: bool = True, ellipse_std: Union[int, float] = 1,
                 scatter_ms: Union[int, float] = 48, scatter_kwargs: Dict[str, Any] = None, ax: plt.Axes = None,
-                title: str = None
+                title: str = None, verbose: bool = True, logger: logging.Logger = None
         ):
             """
             Given vectors grouped by key, plot projections of vectors into 2D space
@@ -197,12 +201,22 @@ if _use_plot():
             :param scatter_kwargs: arguments for scatter plot
             :param ax: matplotlib axes object to plot on
             :param title: plot title
+            :param verbose: If true, prints status to logger
+            :param logger: logger
             """
+            from sklearn.manifold import TSNE  # lazy import to save time
             vects = np.concatenate(list(name2vectors.values()), axis=0)
             tsne_args_ = dict(n_components=2, perplexity=50, random_state=42)
             tsne_args_.update(tsne_args or dict())
-            from sklearn.manifold import TSNE  # lazy import to save time
+
+            logger = logger or _logger
+            if verbose:
+                logger.info(f'Running TSNE on {pl.i(len(vects))} vectors w/ args {pl.i(tsne_args_)}')
+            t = Timer()
             vects_reduced = TSNE(**tsne_args_).fit_transform(vects)
+            if verbose:
+                logger.info(f'TSNE finished in {t.end()}')
+
             setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
             df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})
 
@@ -211,7 +225,13 @@ if _use_plot():
             cs = sns.color_palette('husl', n_colors=len(name2vectors))
             sct_args = dict(hue=key_name, palette=cs, size=key_name, sizes=dnm2ms, alpha=0.7, ax=ax)
             sct_args.update(scatter_kwargs or dict())
+
+            if verbose:
+                logger.info(f'Plotting embedded 2D points w/ args {pl.i(sct_args)}')
+            t = Timer()
             ax = sns.scatterplot(data=df, x='x', y='y', **sct_args)
+            if verbose:
+                logger.info(f'Scatterplot finished in {t.end()}')
 
             if ellipse:
                 for nm, c in zip(name2vectors.keys(), cs):
