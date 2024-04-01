@@ -40,13 +40,17 @@ def stem(
         dirs += [ret]
         return dirs if as_list else os_join(*dirs)
     else:
+        # if it's a directory, always keep extension
+        if os.path.exists(path) and os.path.isdir(path):
+            keep_ext = True
         return os.path.basename(path) if keep_ext else Path(path).stem
 
 
 if __name__ == '__main__':
     def check_stem():
         n = 3
-        path = __file__
+        # path = __file__
+        path = '../dir-with.dot'
         path_ = Path(path)
         print(path)
         print(stem(path, top_n=n))
