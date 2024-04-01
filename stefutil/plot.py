@@ -179,6 +179,7 @@ if _use_plot():
         def vector_projection_plot(
                 name2vectors: Dict[str, np.ndarray], tsne_args: Dict[str, Any] = None, tight_fig_size: bool = True, key_name: str = 'setup',
                 ellipse: bool = True, ellipse_std: Union[int, float] = 1,
+                scatter_ms: Union[int, float] = 48, scatter_kwargs: Dict[str, Any] = None, ax: plt.Axes = None,
                 title: str = None
         ):
             """
@@ -191,6 +192,10 @@ if _use_plot():
             :param key_name: column name for setup in the internal dataframe
             :param ellipse: If true, plot confidence ellipse for each setup
             :param ellipse_std: Number of standard deviations for ellipse
+            :param scatter_ms: Base marker size for scatter plot
+                Will be scaled by number of samples in each group
+            :param scatter_kwargs: arguments for scatter plot
+            :param ax: matplotlib axes object to plot on
             :param title: plot title
             """
             vects = np.concatenate(list(name2vectors.values()), axis=0)
@@ -201,10 +206,12 @@ if _use_plot():
             setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
             df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})
 
-            ms = 48  # more samples => smaller markers
+            ms = 48 or scatter_ms  # more samples => smaller markers
             dnm2ms = {nm: 1 / math.log((len(v))) * ms for nm, v in name2vectors.items()}
             cs = sns.color_palette('husl', n_colors=len(name2vectors))
-            ax = sns.scatterplot(data=df, x='x', y='y', hue=key_name, palette=cs, size=key_name, sizes=dnm2ms, alpha=0.7)
+            sct_args = dict(hue=key_name, palette=cs, size=key_name, sizes=dnm2ms, alpha=0.7, ax=ax)
+            sct_args.update(scatter_kwargs or dict())
+            ax = sns.scatterplot(data=df, x='x', y='y', **sct_args)
 
             if ellipse:
                 for nm, c in zip(name2vectors.keys(), cs):
