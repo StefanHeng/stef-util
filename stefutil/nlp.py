@@ -150,8 +150,11 @@ if _use_dl():
             lst_vects = np.empty(n_ba, dtype=object)
             it = tqdm(group_n(texts, bsz), total=n_ba, desc=desc, unit='ba')
             it.set_postfix(n=pl.i(n), bsz=pl.i(bsz))
+
+            enc_args = dict(batch_size=bsz, show_progress_bar=False, )
+            enc_args.update(kwargs)
             for i, sents in enumerate(it):
-                lst_vects[i] = self.model.encode(sents, batch_size=bsz, show_progress_bar=False, **kwargs)
+                lst_vects[i] = self.model.encode(sents, **enc_args)
             return np.concatenate(lst_vects, axis=0)
 
 
