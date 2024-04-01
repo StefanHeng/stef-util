@@ -86,7 +86,7 @@ def is_on_colab() -> bool:
     return 'google.colab' in sys.modules
 
 
-if _use_ml():
+if _use_ml() or _use_dl():
     __all__ += ['eval_array2report_df']
 
     def eval_array2report_df(

@@ -137,7 +137,7 @@ if _use_dl():
                 SbertEncoder.model_name2model[self.model_name] = SentenceTransformer(self.model_name, device=device)
             return SbertEncoder.model_name2model[self.model_name]
 
-        def __call__(self, texts: List[str], batch_size: int = 32, desc: str = None):
+        def __call__(self, texts: List[str], batch_size: int = 32, desc: str = None, **kwargs):
             """
             :param texts: List of texts to encode
             :param batch_size: encode batch size
@@ -151,7 +151,7 @@ if _use_dl():
             it = tqdm(group_n(texts, bsz), total=n_ba, desc=desc, unit='ba')
             it.set_postfix(n=pl.i(n), bsz=pl.i(bsz))
             for i, sents in enumerate(it):
-                lst_vects[i] = self.model.encode(sents, batch_size=bsz)
+                lst_vects[i] = self.model.encode(sents, batch_size=bsz, show_progress_bar=False, **kwargs)
             return np.concatenate(lst_vects, axis=0)
 
 
@@ -171,4 +171,11 @@ if __name__ == '__main__':
     def check_punc_tokenize():
         s = 'Are there any romantic movies from the 90s on Disney+?'
         sic(punc_tokenize(s))
-    check_punc_tokenize()
+    # check_punc_tokenize()
+
+    def check_enc():
+        texts = ['hello world 1', 'hello world 2', 'hello world 3'] * 4
+        se = SbertEncoder()
+        vects = se(texts, batch_size=2)
+        sic(vects.shape)
+    check_enc()
