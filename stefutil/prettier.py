@@ -747,7 +747,7 @@ ca.cache_options(  # See `stefutil::plot.py`
 
 
 def now(
-        as_str=True, for_path=False, fmt: str = 'short-full', color: Union[bool, str] = False
+        as_str=True, for_path=False, fmt: str = 'short-full', color: Union[bool, str] = False, time_zone: str = None
 ) -> Union[datetime.datetime, str]:
     """
     # Considering file output path
@@ -759,8 +759,14 @@ def now(
         If a string is passed in, the color is applied to the string following `PrettyLogger` convention
     :param fmt: One of [`full`, `date`, `short-date`]
         relevant only when as_str is True
+    :param time_zone: Time zone to convert the time to
     """
     d = datetime.datetime.now()
+
+    if time_zone:
+        import pytz
+        tz = pytz.timezone(time_zone)
+        d = d.astimezone(tz)
 
     if as_str:
         ca.assert_options('Date Format', fmt, ['full', 'short-full', 'date', 'short-date'])
@@ -982,4 +988,11 @@ if __name__ == '__main__':
         print(pl.i(d))
         d = dict(a=1, b=2)
         print(pl.i(d))
-    check_dict_tup_key()
+    # check_dict_tup_key()
+
+    def check_now_tz():
+        sic(now())
+        sic(now(time_zone='US/Pacific'))
+        sic(now(time_zone='US/Eastern'))
+        sic(now(time_zone='Europe/London'))
+    check_now_tz()
