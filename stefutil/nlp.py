@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from stefutil.container import *
 from stefutil.prettier import *
-from stefutil._check_import import _use_dl
+from stefutil.packaging import _use_dl
 
 
 __all__ = ['punc_tokenize']

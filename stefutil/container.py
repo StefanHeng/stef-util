@@ -8,7 +8,7 @@ from functools import reduce
 from collections import OrderedDict
 
 from stefutil.prettier import pl
-from stefutil._check_import import _use_dl
+from stefutil.packaging import _use_dl
 
 
 __all__ = [

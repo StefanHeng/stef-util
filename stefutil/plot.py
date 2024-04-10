@@ -13,7 +13,7 @@ from stefutil.prettier import pl, ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
 
 
-from stefutil._check_import import _use_plot, _use_ml
+from stefutil.packaging import _use_plot, _use_ml
 
 
 __all__ = []
