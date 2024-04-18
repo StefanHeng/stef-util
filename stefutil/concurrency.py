@@ -267,22 +267,22 @@ if DEV:
     import time
     import random
 
-    from stefutil.prettier import pl, sic, get_logger
+    from stefutil.prettier import s, sic, get_logger
 
     logger = get_logger('Conc Dev')
 
     def _work(task_idx):
         t = round(random.uniform(1, 4), 3)
-        print(f'Task {pl.i(task_idx)} launched, will sleep for {pl.i(t)} s')
+        print(f'Task {s.i(task_idx)} launched, will sleep for {s.i(t)} s')
         time.sleep(t)
 
-        print(f'Task {pl.i(task_idx)} is done')
+        print(f'Task {s.i(task_idx)} is done')
         return task_idx
 
 
     def _dummy_fn(x: int):
         t = round(random.uniform(0.2, 1), 3)
-        logger.info(f'Calling dummy_fn w/ arg {pl.i(x)}, will sleep for {pl.i(t)}s')
+        logger.info(f'Calling dummy_fn w/ arg {s.i(x)}, will sleep for {s.i(t)}s')
         time.sleep(t)
 
         return x, [random.random() for _ in range(int(1e6))]
@@ -341,12 +341,12 @@ if __name__ == '__main__':
                     if remove_job:
                         futures.remove(f)
                     n_processed += 1
-                    logger.info(f'Process {pl.i(i)} terminated, {pl.i(n_processed)} / {pl.i(n)} processed')
+                    logger.info(f'Process {s.i(i)} terminated, {s.i(n_processed)} / {s.i(n)} processed')
         else:
             args = dict(with_tqdm=dict(total=n), n_worker=3, mode='process', batch_size=4)
             for i in conc_yield(fn=_dummy_fn, args=range(n), **args):
                 i, _ = i
-                logger.info(f'Process {pl.i(i)} terminated')
+                logger.info(f'Process {s.i(i)} terminated')
     # test_conc_mem_use()
 
     def check_conc_process_chunk():
@@ -357,5 +357,5 @@ if __name__ == '__main__':
         args = dict(n_worker=4, mode='process', batch_size=bsz, process_chunk_multiplier=4)
         for i in conc_yield(fn=_dummy_fn, args=range(n), with_tqdm=dict(total=n), **args):
             i, _ = i
-            logger.info(f'Process {pl.i(i)} terminated')
+            logger.info(f'Process {s.i(i)} terminated')
     check_conc_process_chunk()

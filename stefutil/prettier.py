@@ -11,13 +11,10 @@ import pprint
 import string
 import logging
 import datetime
-from typing import Tuple, List, Dict, Iterable, Union, Optional
-from pygments import highlight, lexers, formatters
+from typing import Tuple, List, Dict, Iterable, Union, Optional, Any
 from dataclasses import dataclass
 from collections import OrderedDict
 
-import sty
-import colorama
 from icecream import IceCreamDebugger
 
 from stefutil.primitive import *
@@ -26,11 +23,10 @@ from stefutil.primitive import *
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
     'set_pd_style',
-    'MyIceCreamDebugger', 'sic',
-    'PrettyLogger', 'pl',
+    'MyIceCreamDebugger', 'sic', 'PrettyStyler', 's',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler'
-    , 'get_logging_handler', 'get_logger', 'add_file_handler', 'drop_file_handler',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler',
+    'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
     'now'
@@ -162,71 +158,131 @@ def _adjust_indentation(prefix: str = None, postfix: str = None, sep: str = None
     return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
 
 
-class PrettyLogger:
+# support the `colorama` package for terminal ANSI styling as legacy backend
+# by default, use `click.style()` for less & composable code
+_ansi_backend = os.environ.get('SU_ANSI_BACKEND', 'click')
+if _ansi_backend not in ['click', 'colorama']:
+    raise ValueError(f'ANSI backend {_ansi_backend} not recognized')
+ANSI_BACKEND = _ansi_backend
+
+if ANSI_BACKEND == 'click':
+    import click
+
+    _ansi_reset_all = '\033[0m'  # taken from `click
+else:
+    assert ANSI_BACKEND == 'colorama'  # legacy
+    import sty
+    import colorama
+
+
+class PrettyStyler:
     """
     My logging w/ color & formatting, and a lot of syntactic sugar
     """
-    reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
-    key2c = dict(
-        log='',
-        warn=colorama.Fore.YELLOW,
-        error=colorama.Fore.RED,
-        err=colorama.Fore.RED,
-        success=colorama.Fore.GREEN,
-        suc=colorama.Fore.GREEN,
-        info=colorama.Fore.BLUE,
-        i=colorama.Fore.BLUE,
-        w=colorama.Fore.RED,
+    if ANSI_BACKEND == 'click':  # `click.style()` already handles various colors, here stores the mapping from my rep
+        # start with my shortcut mapping
+        short_c2c = dict(
+            bl='black',
+            r='red',
+            g='green',
+            y='yellow',
+            b='blue',
+            m='magenta',
+            c='cyan',
+            w='white',
+        )
+        # also add the bright versions, mapping to names used by `click.style()`
+        short_c2c.update({f'B{c}': f'bright_{c}' for c in short_c2c.keys()})
+        short_c2c.update(  # now set default colors for each logging type
+            log='green',
+            warn='yellow',
+            error='red',
+            success='green',
+            info='blue',
+            i='blue',
+        )
+    else:
+        assert ANSI_BACKEND == 'colorama'
+        reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
+        short_c2c = dict(
+            log='',
+            warn=colorama.Fore.YELLOW,
+            error=colorama.Fore.RED,
+            err=colorama.Fore.RED,
+            success=colorama.Fore.GREEN,
+            suc=colorama.Fore.GREEN,
+            info=colorama.Fore.BLUE,
+            i=colorama.Fore.BLUE,
+            w=colorama.Fore.RED,
 
-        y=colorama.Fore.YELLOW,
-        yellow=colorama.Fore.YELLOW,
-        red=colorama.Fore.RED,
-        r=colorama.Fore.RED,
-        green=colorama.Fore.GREEN,
-        g=colorama.Fore.GREEN,
-        blue=colorama.Fore.BLUE,
-        b=colorama.Fore.BLUE,
+            y=colorama.Fore.YELLOW,
+            yellow=colorama.Fore.YELLOW,
+            red=colorama.Fore.RED,
+            r=colorama.Fore.RED,
+            green=colorama.Fore.GREEN,
+            g=colorama.Fore.GREEN,
+            blue=colorama.Fore.BLUE,
+            b=colorama.Fore.BLUE,
 
-        m=colorama.Fore.MAGENTA
-    )
+            m=colorama.Fore.MAGENTA
+        )
 
     @staticmethod
-    def log(s, c: str = 'log', c_time='green', as_str=False, bold: bool = False, pad: int = None):
+    def log(text, fg: str = 'log', bg: str = None, c_time='green', as_str=False, bold: bool = False, pad: int = None, **style_kwargs):
         """
-        Prints `s` to console with color `c`
+        main function for styling, optionally prints to console with timestamp
         """
-        need_reset = False
-        if c in PrettyLogger.key2c:
-            c = PrettyLogger.key2c[c]
-            need_reset = True
-        if bold:
-            c += colorama.Style.BRIGHT
-            need_reset = True
-        reset = PrettyLogger.reset if need_reset else ''
-        if as_str:
-            return f'{c}{s:>{pad}}{reset}' if pad else f'{c}{s}{reset}'
+        if ANSI_BACKEND == 'click':
+            if pad:
+                raise NotImplementedError
+            if fg:
+                fg = PrettyStyler.short_c2c.get(fg, fg)
+            if bg:
+                bg = PrettyStyler.short_c2c.get(bg, bg)
+            txt = click.style(text=f'{text:>{pad}}'if pad else text, fg=fg, bg=bg, bold=bold, **style_kwargs)
+            if as_str:
+                return txt
+            else:
+                t = click.style(text=now(), fg=c_time, bold=bold)
+                print(f'{t}| {txt}')
         else:
-            print(f'{c}{PrettyLogger.log(now(), c=c_time, as_str=True)}| {s}{reset}')
+            if style_kwargs:
+                raise NotImplementedError('Additional styling arguments expected for backend `click` only')
+
+            need_reset = False
+            if fg in PrettyStyler.short_c2c:
+                fg = PrettyStyler.short_c2c[fg]
+                need_reset = True
+            if bold:
+                fg += colorama.Style.BRIGHT
+                need_reset = True
+            reset = PrettyStyler.reset if need_reset else ''
+            if as_str:
+                return f'{fg}{text:>{pad}}{reset}' if pad else f'{fg}{text}{reset}'
+            else:
+                print(f'{fg}{PrettyStyler.log(now(), fg=c_time, as_str=True)}| {text}{reset}')
 
     @staticmethod
-    def s(s, c: str = None, bold: bool = False, with_color: bool = True) -> str:
+    def s(text, fg: str = None, bold: bool = False, with_color: bool = True, **style_kwargs) -> str:
         """
         syntactic sugar for return string instead of print
         """
-        c = c if with_color else ''  # keeping the same signature with logging specific types for `lognc`
-        return PrettyLogger.log(s, c=c, as_str=True, bold=bold)
+        if not with_color:
+            fg, bold = None, None
+        return PrettyStyler.log(text, fg=fg, as_str=True, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(s, indent: Union[int, bool, str] = None, **kwargs):
+    def i(text, indent: Union[int, bool, str] = None, **kwargs):
         """
         Syntactic sugar for logging `info` as string
 
+        :param text: Text to log
         :param indent: Maximum indentation level, will be propagated through dict and list only
         """
         if indent is not None and 'curr_indent' not in kwargs:
             if isinstance(indent, str):
                 if indent != 'all':
-                    raise ValueError(f'Indentation type {pl.i(indent)} not recognized')
+                    raise ValueError(f'Indentation type {s.i(indent)} not recognized')
                 indent = float('inf')
             elif isinstance(indent, bool):
                 assert indent is True
@@ -235,21 +291,23 @@ class PrettyLogger:
                 assert isinstance(indent, int) and indent > 0  # sanity check
             kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
         # otherwise, already a nested internal call
-        if isinstance(s, dict):
-            return PrettyLogger._dict(s, **kwargs)
-        elif isinstance(s, list):
-            return PrettyLogger._list(s, **kwargs)
-        elif isinstance(s, tuple):
-            return PrettyLogger._tuple(s, **kwargs)
-        elif isinstance(s, float):
-            s = PrettyLogger._float(s, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
-            return PrettyLogger.i(s, **kwargs)
-        else:
-            kwargs_ = dict(c='i')
+        if isinstance(text, dict):
+            return PrettyStyler._dict(text, **kwargs)
+        elif isinstance(text, list):
+            return PrettyStyler._list(text, **kwargs)
+        elif isinstance(text, tuple):
+            return PrettyStyler._tuple(text, **kwargs)
+        elif isinstance(text, float):
+            text = PrettyStyler._float(text, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
+            return PrettyStyler.i(text, **kwargs)
+        else:  # base case
+            kwargs_ = dict(fg='b')
+            if ANSI_BACKEND == 'click':
+                kwargs_['bold'] = True
             kwargs_.update(kwargs)
             for k in ['pad_float', 'for_path', 'value_no_color']:
                 kwargs_.pop(k, None)
-            return PrettyLogger.s(s, **kwargs_)
+            return PrettyStyler.s(text, **kwargs_)
 
     @staticmethod
     def _float(f: float, pad: int = None) -> str:
@@ -261,19 +319,19 @@ class PrettyLogger:
             return str(f)
 
     @staticmethod
-    def pa(s, shorter_bool: bool = True, **kwargs):
-        assert isinstance(s, dict)
+    def pa(text, shorter_bool: bool = True, **kwargs):
+        assert isinstance(text, dict)
         fp = 'shorter-bool' if shorter_bool else True
         kwargs = kwargs or dict()
         kwargs['pairs_sep'] = ','  # remove whitespace to save LINUX file path escaping
-        return PrettyLogger.i(s, for_path=fp, with_color=False, **kwargs)
+        return PrettyStyler.i(text, for_path=fp, with_color=False, **kwargs)
 
     @staticmethod
-    def nc(s, **kwargs):
+    def nc(text, **kwargs):
         """
         Syntactic sugar for `i` w/o color
         """
-        return PrettyLogger.i(s, with_color=False, **kwargs)
+        return PrettyStyler.i(text, with_color=False, **kwargs)
 
     @staticmethod
     def id(d: Dict) -> str:
@@ -283,11 +341,12 @@ class PrettyLogger:
         return json.dumps(d, indent=4)
 
     @staticmethod
-    def fmt(s) -> str:
+    def fmt(text) -> str:
         """
         colored by `pygments` & with indent
         """
-        return highlight(PrettyLogger.id(s), lexers.JsonLexer(), formatters.TerminalFormatter())
+        from pygments import highlight, lexers, formatters
+        return highlight(PrettyStyler.id(text), lexers.JsonLexer(), formatters.TerminalFormatter())
 
     @staticmethod
     def _iter(
@@ -296,7 +355,7 @@ class PrettyLogger:
     ):
         # `kwargs` so that customization for other types can be ignored w/o error
         if with_color:
-            pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
+            pref, post = PrettyStyler.s(pref, fg='m'), PrettyStyler.s(post, fg='m')
 
         def log_elm(e):
             curr_idt = None
@@ -305,9 +364,9 @@ class PrettyLogger:
                 if curr_indent < indent_end:
                     curr_idt = curr_indent + 1
             if isinstance(e, (list, dict)):
-                return PrettyLogger.i(e, with_color=with_color, curr_indent=curr_idt, indent_end=indent_end, for_path=for_path, **kwargs)
+                return PrettyStyler.i(e, with_color=with_color, curr_indent=curr_idt, indent_end=indent_end, for_path=for_path, **kwargs)
             else:
-                return PrettyLogger.i(e, with_color=with_color, for_path=for_path, **kwargs)
+                return PrettyStyler.i(e, with_color=with_color, for_path=for_path, **kwargs)
         lst = [log_elm(e) for e in it]
         if sep is None:
             sep = ',' if for_path else ', '
@@ -327,13 +386,13 @@ class PrettyLogger:
             pref, post, sep = args['pref'], args['post'], args['sep']
             out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent=indent)
             args['pref'], args['post'], args['sep'] = out.prefix, out.postfix, out.sep
-        return PrettyLogger._iter(lst, **args)
+        return PrettyStyler._iter(lst, **args)
 
     @staticmethod
     def _tuple(tpl: Tuple, **kwargs):
         args = dict(with_color=True, for_path=False, pref='(', post=')')
         args.update(kwargs)
-        return PrettyLogger._iter(tpl, **args)
+        return PrettyStyler._iter(tpl, **args)
 
     @staticmethod
     def _dict(
@@ -367,13 +426,13 @@ class PrettyLogger:
             if align == 'pass':
                 kwargs['align_keys'] = align_keys
             if isinstance(v, dict):
-                return PrettyLogger.i(
+                return PrettyStyler.i(
                     v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
                     curr_indent=curr_idt, indent_end=indent_end, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
-                return PrettyLogger.i(v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
+                return PrettyStyler.i(v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -390,20 +449,20 @@ class PrettyLogger:
                 #         return PrettyLogger.i(v) if with_color else v
                 else:
                     # return PrettyLogger.i(v) if with_color else v
-                    return PrettyLogger.i(v, with_color=c, pad_float=pad_float)
+                    return PrettyStyler.i(v, with_color=c, pad_float=pad_float)
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
             key_value_sep = '='
         if with_color:
-            key_value_sep = PrettyLogger.s(key_value_sep, c='m')
+            key_value_sep = PrettyStyler.s(key_value_sep, fg='m')
 
         pairs = []
         for k, v_ in d.items():
             if align == 'curr' and max_c is not None:
                 k = f'{k:<{max_c}}'
             # no coloring, but still try to make it more compact, e.g. string tuple processing
-            k = PrettyLogger.i(k, with_color=False, for_path=for_path)
+            k = PrettyStyler.i(k, with_color=False, for_path=for_path)
             if omit_none_val and v_ is None:
                 pairs.append(k)
             else:
@@ -414,25 +473,25 @@ class PrettyLogger:
             out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent=indent)
             pref, post, pairs_sep_ = out.prefix, out.postfix, out.sep
         if with_color:
-            pref, post = PrettyLogger.s(pref, c='m'), PrettyLogger.s(post, c='m')
+            pref, post = PrettyStyler.s(pref, fg='m'), PrettyStyler.s(post, fg='m')
         return pref + pairs_sep_.join(pairs) + post
 
 
-pl = PrettyLogger()
+s = PrettyStyler()
 
 
-def str2ascii_str(s: str) -> str:
+def str2ascii_str(text: str) -> str:
     if not hasattr(str2ascii_str, 'printable'):
         str2ascii_str.printable = set(string.printable)
-    return ''.join([x for x in s if x in str2ascii_str.printable])
+    return ''.join([x for x in text if x in str2ascii_str.printable])
 
 
-def sanitize_str(s: str) -> str:
+def sanitize_str(text: str) -> str:
     if not hasattr(sanitize_str, 'whitespace_pattern'):
         sanitize_str.whitespace_pattern = re.compile(r'\s+')
-    ret = sanitize_str.whitespace_pattern.sub(' ', str2ascii_str(s)).strip()
+    ret = sanitize_str.whitespace_pattern.sub(' ', str2ascii_str(text)).strip()
     if ret == '':
-        raise ValueError(f'Empty text after cleaning, was {pl.i(s)}')
+        raise ValueError(f'Empty text after cleaning, was {s.i(text)}')
     return ret
 
 
@@ -488,12 +547,37 @@ class MyFormatter(logging.Formatter):
 
     Default styling: Time in green, metadata indicates severity, plain log message
     """
-    RESET = sty.rs.fg + sty.rs.bg + sty.rs.ef
+    if ANSI_BACKEND == 'click':
+        # styling for each level and for time prefix
+        time = dict(fg='g')
+        sep = dict(fg='b')
 
-    MyTheme.set_color_type('sty')
-    yellow, green, blue, cyan, red, purple = (
-        MyTheme.yellow, MyTheme.green, MyTheme.blue, MyTheme.cyan, MyTheme.red, MyTheme.purple
-    )
+        debug = dict(fg=None, dim=True, bold=True)
+        info = dict(fg=None, bold=True)
+        warning = dict(fg='y', bold=True)
+        error = dict(fg='r', bold=True)
+        critical = dict(fg='m', bold=True)
+    else:
+        assert ANSI_BACKEND == 'colorama'
+
+        RESET = sty.rs.fg + sty.rs.bg + sty.rs.ef
+
+        MyTheme.set_color_type('sty')
+        yellow, green, blue, cyan, red, purple = (
+            MyTheme.yellow, MyTheme.green, MyTheme.blue, MyTheme.cyan, MyTheme.red, MyTheme.purple
+        )
+
+        debug, info, base = RESET
+        warning, error, critical = yellow, red, purple
+        critical += sty.Style(sty.ef.bold)
+
+    LVL_MAP = {  # level => (abbreviation, style)
+        logging.DEBUG: ('DBG', debug),
+        logging.INFO: ('INFO', info),
+        logging.WARNING: ('WARN', warning),
+        logging.ERROR: ('ERR', error),
+        logging.CRITICAL: ('CRIT', critical)
+    }
 
     KW_TIME = '%(asctime)s'
     KW_MSG = '%(message)s'
@@ -502,28 +586,30 @@ class MyFormatter(logging.Formatter):
     KW_FUNC_NM = '%(funcName)s'
     KW_NAME = '%(name)s'
 
-    DEBUG = INFO = BASE = RESET
-    WARN, ERR, CRIT = yellow, red, purple
-    CRIT += sty.Style(sty.ef.bold)
-
-    LVL_MAP = {  # level => (abbreviation, style)
-        logging.DEBUG: ('DBG', DEBUG),
-        logging.INFO: ('INFO', INFO),
-        logging.WARNING: ('WARN', WARN),
-        logging.ERROR: ('ERR', ERR),
-        logging.CRITICAL: ('CRIT', CRIT)
-    }
-
-    def __init__(self, with_color=True, color_time=green):
+    def __init__(self, with_color=True, style_time: Dict[str, Any] = None, style_sep: Dict[str, Any] = None):
+        # time set to green by default, punc separator set to green by default
         super().__init__()
         self.with_color = with_color
 
-        sty_kw, reset = MyFormatter.blue, MyFormatter.RESET
-        color_time = f'{color_time}{MyFormatter.KW_TIME}{sty_kw}|{reset}'
+        if ANSI_BACKEND == 'click':
+            time_style_args = MyFormatter.time.copy()
+            time_style_args.update(style_time or dict())
+            color_time = s.s(MyFormatter.KW_TIME, **time_style_args) + s.s('|', **MyFormatter.sep)
+        else:
+            assert ANSI_BACKEND == 'colorama'
+            if style_time:
+                raise NotImplementedError('Styling for time not supported for `colorama` backend')
+            reset = MyFormatter.RESET
+            c_time, c_sep = MyFormatter.green, MyFormatter.blue
+            color_time = f'{c_time}{MyFormatter.KW_TIME}{c_sep}|{reset}'
 
         def args2fmt(args_):
             if self.with_color:
-                return color_time + self.fmt_meta(*args_) + f'{sty_kw}: {reset}{MyFormatter.KW_MSG}' + reset
+                if ANSI_BACKEND == 'click':
+                    return color_time + self.fmt_meta(*args_) + s.s(': ', **MyFormatter.sep) + MyFormatter.KW_MSG + _ansi_reset_all
+                else:
+                    assert ANSI_BACKEND == 'colorama'
+                    return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
             else:
                 return f'{MyFormatter.KW_TIME}| {self.fmt_meta(*args_)}: {MyFormatter.KW_MSG}'
 
@@ -532,13 +618,21 @@ class MyFormatter(logging.Formatter):
             lv: logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S') for lv, fmt in self.formats.items()
         }
 
-    def fmt_meta(self, meta_abv, meta_style=None):
+    def fmt_meta(self, meta_abv, meta_style: Union[str, Dict[str, Any]] = None):
         if self.with_color:
-            return f'{MyFormatter.purple}[{MyFormatter.KW_NAME}]' \
-               f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}' \
-               f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}' \
-               f'{MyFormatter.blue}:{MyFormatter.purple}{MyFormatter.KW_LINENO}' \
-               f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}'
+            if ANSI_BACKEND == 'click':
+                return '[' + s.s(MyFormatter.KW_NAME, fg='m') + ']' \
+                    + s.s('::', **MyFormatter.sep) + s.s(MyFormatter.KW_FUNC_NM, fg='m') \
+                    + s.s('::', **MyFormatter.sep) + s.s(MyFormatter.KW_FNM, fg='m') \
+                    + s.s(':', **MyFormatter.sep) + s.s(MyFormatter.KW_LINENO, fg='m') \
+                    + s.s(':', **MyFormatter.sep) + s.s(meta_abv, **meta_style)
+            else:
+                assert ANSI_BACKEND == 'colorama'
+                return f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]' \
+                   f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}' \
+                   f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}' \
+                   f'{MyFormatter.blue}:{MyFormatter.purple}{MyFormatter.KW_LINENO}' \
+                   f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}'
         else:
             return f'[{MyFormatter.KW_NAME}] {MyFormatter.KW_FUNC_NM}::{MyFormatter.KW_FNM}' \
                    f':{MyFormatter.KW_LINENO}, {meta_abv}'
@@ -594,26 +688,50 @@ class CleanAnsiFileHandler(logging.FileHandler):
         super().emit(record)
 
 
-def get_logging_handler(kind: str, file_path: str = None) -> Union[logging.Handler, List[logging.Handler]]:
+# taken from HF
+LOG_STR2LOG_LEVEL = {
+    "detail": logging.DEBUG,  # will also print filename and line number
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
+
+
+def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Union[str, int] = None):
+    """
+    Set logging level for the logger
+    """
+    if isinstance(level, str):
+        level = LOG_STR2LOG_LEVEL[level.lower()]
+    logger.setLevel(level)
+
+
+def get_logging_handler(
+        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug'
+) -> Union[logging.Handler, List[logging.Handler]]:
     if kind == 'both':
         return [get_logging_handler(kind='stdout'), get_logging_handler(kind='file', file_path=file_path)]
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
     else:  # `file`
         if not file_path:
-            raise ValueError(f'{pl.i(file_path)} must be specified for {pl.i("file")} logging')
+            raise ValueError(f'{s.i(file_path)} must be specified for {s.i("file")} logging')
 
         dnm = os.path.dirname(file_path)
         if dnm and not os.path.exists(dnm):
             os.makedirs(dnm, exist_ok=True)
         handler = CleanAnsiFileHandler(file_path)
-    handler.setLevel(logging.DEBUG)
+    set_level(handler, level=level)
     handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
     handler.addFilter(HandlerFilter(handler_name=kind))
     return handler
 
 
-def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> logging.Logger:
+def get_logger(
+        name: str, kind: str = 'stdout', level: Union[str, int] = 'debug', file_path: str = None
+) -> logging.Logger:
     """
     :param name: Name of the logger
     :param kind: Logger type, one of [`stdout`, `file`, `both`]
@@ -623,7 +741,7 @@ def get_logger(name: str, kind: str = 'stdout', file_path: str = None) -> loggin
     assert kind in ['stdout', 'file-write', 'both']
     logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
     logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
-    logger.setLevel(logging.DEBUG)
+    set_level(logger, level=level)
 
     handlers = get_logging_handler(kind=kind, file_path=file_path)
     if not isinstance(handlers, list):
@@ -644,7 +762,7 @@ def add_file_handler(logger: logging.Logger, file_path: str):
     for h in logger.handlers:
         if isinstance(h, logging.FileHandler):
             logger.removeHandler(h)
-            logger.info(f'Prior Handler {pl.i(h)} removed')
+            logger.info(f'Prior Handler {s.i(h)} removed')
     logger.addHandler(handler)
     return logger
 
@@ -659,7 +777,7 @@ def drop_file_handler(logger: logging.Logger):
             logger.removeHandler(h)
             rmv.append(h)
     if len(rmv) > 0:
-        logger.info(f'Handlers {pl.i(rmv)} removed')
+        logger.info(f'Handlers {s.i(rmv)} removed')
     return logger
 
 
@@ -716,25 +834,25 @@ class CheckArg:
         if self.ignore_none and val is None:
             if self.verbose:
                 if attribute_name:
-                    s = f'{pl.i(display_name)}::{pl.i(attribute_name)}'
+                    nm = f'{s.i(display_name)}::{s.i(attribute_name)}'
                 else:
-                    s = pl.i(display_name)
-                CheckArg.logger.warning(f'Argument {s} is {pl.i("None")} and ignored')
+                    nm = s.i(display_name)
+                CheckArg.logger.warning(f'Argument {nm} is {s.i("None")} and ignored')
             return True
         if self.verbose:
             d_log = dict(val=val, accepted_values=options)
-            CheckArg.logger.info(f'Checking {pl.i(display_name)} w/ {pl.i(d_log)}... ')
+            CheckArg.logger.info(f'Checking {s.i(display_name)} w/ {s.i(d_log)}... ')
         if val not in options:
             if silent:
                 return False
             else:
-                raise ValueError(f'Unexpected {pl.i(display_name)}: expect one of {pl.i(options)}, got {pl.i(val)}')
+                raise ValueError(f'Unexpected {s.i(display_name)}: expect one of {s.i(options)}, got {s.i(val)}')
         else:
             return True
 
     def cache_options(self, display_name: str, attr_name: str, options: List[str]):
         if attr_name in self.d_name2func:
-            raise ValueError(f'Attribute name {pl.i(attr_name)} already exists')
+            raise ValueError(f'Attribute name {s.i(attr_name)} already exists')
         self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, options, attr_name)
         # set a custom attribute for `attr_name` as the list of options
         setattr(self, attr_name, options)
@@ -781,8 +899,8 @@ def now(
 
         if color:
             # split the string on separation chars and join w/ the colored numbers
-            c = color if isinstance(color, str) else 'green'
-            nums = [pl.s(num, c=c) for num in re.split(r'[\s\-:._]', ret)]
+            fg = color if isinstance(color, str) else 'green'
+            nums = [s.s(num, fg=fg) for num in re.split(r'[\s\-:._]', ret)]
             puncs = re.findall(r'[\s\-:._]', ret)
             assert len(nums) == len(puncs) + 1
             ret = ''.join([n + p for n, p in zip(nums, puncs)]) + nums[-1]
@@ -798,33 +916,33 @@ if __name__ == '__main__':
 
     def check_log_lst():
         lst = ['sda', 'asd']
-        print(pl.i(lst))
+        print(s.i(lst))
         # with open('test-logi.txt', 'w') as f:
         #     f.write(pl.nc(lst))
     # check_log_lst()
 
     def check_log_tup():
         tup = ('sda', 'asd')
-        print(pl.i(tup))
+        print(s.i(tup))
     # check_log_tup()
 
     def check_logi():
         d = dict(a=1, b=2)
-        print(pl.i(d))
-    # check_logi()
+        print(s.i(d))
+    check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
         sic(d)
-        print(pl.i(d))
-        print(pl.nc(d))
-        sic(pl.i(d), pl.nc(d))
+        print(s.i(d))
+        print(s.nc(d))
+        sic(s.i(d), s.nc(d))
     # check_nested_log_dict()
 
     def check_logger():
         logger = get_logger('blah')
         logger.info('should appear once')
-    # check_logger()
+    check_logger()
 
     def check_now():
         sic(now(fmt='full'))
@@ -860,10 +978,10 @@ if __name__ == '__main__':
 
     def check_float_pad():
         d = dict(ratio=0.95)
-        print(pl.i(d))
-        print(pl.i(d, pad_float=False))
-        print(pl.pa(d))
-        print(pl.pa(d, pad_float=False))
+        print(s.i(d))
+        print(s.i(d, pad_float=False))
+        print(s.pa(d))
+        print(s.pa(d, pad_float=False))
     # check_float_pad()
 
     def check_ordinal():
@@ -880,9 +998,9 @@ if __name__ == '__main__':
 
     def check_omit_none():
         d = dict(a=1, b=None, c=3)
-        print(pl.pa(d))
-        print(pl.pa(d, omit_none_val=False))
-        print(pl.pa(d, omit_none_val=True))
+        print(s.pa(d))
+        print(s.pa(d, omit_none_val=False))
+        print(s.pa(d, omit_none_val=True))
     # check_omit_none()
 
     def check_both_handler():
@@ -891,29 +1009,29 @@ if __name__ == '__main__':
         # logger = get_logger('test-both', kind='stdout')
         logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
         d_log = dict(a=1, b=2, c='test')
-        logger.info(pl.i(d_log))
+        logger.info(s.i(d_log))
         logger.info('only to file', extra=dict(block='stdout'))
-    # check_both_handler()
+    check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
-        sic(pl.pa(d))
-        sic(pl.pa(d, ))
-        sic(pl.pa(d, shorter_bool=False))
+        sic(s.pa(d))
+        sic(s.pa(d, ))
+        sic(s.pa(d, shorter_bool=False))
     # check_pa()
 
     def check_log_i():
         # d = dict(a=1, b=True, c='hell')
         d = ['asd', 'hel', 'sada']
-        print(pl.i(d))
-        print(pl.i(d, with_color=False))
+        print(s.i(d))
+        print(s.i(d, with_color=False))
     # check_log_i()
 
     def check_log_i_float_pad():
         d = {'location': 90.6, 'miscellaneous': 35.0, 'organization': 54.2, 'person': 58.7}
         sic(d)
-        print(pl.i(d))
-        print(pl.i(d, pad_float=False))
+        print(s.i(d))
+        print(s.i(d, pad_float=False))
     # check_log_i_float_pad()
 
     def check_sci():
@@ -921,16 +1039,16 @@ if __name__ == '__main__':
         f1 = 84.7
         sic(num, str(num))
         d = dict(md='bla', num=num, f1=f1)
-        sic(pl.pa(d))
-        print(pl.i(d))
-        print(pl.i(num))
+        sic(s.pa(d))
+        print(s.i(d))
+        print(s.i(num))
     # check_sci()
 
     def check_pl_iter_sep():
         lst = ['hello', 'world']
         tup = tuple(lst)
-        print(pl.i(lst, sep='; '))
-        print(pl.i(tup, sep='; '))
+        print(s.i(lst, sep='; '))
+        print(s.i(tup, sep='; '))
     # check_pl_iter_sep()
 
     def check_pl_indent():
@@ -942,31 +1060,31 @@ if __name__ == '__main__':
         ]
         for d in ds:
             for idt in [1, 2, 'all']:
-                print(f'indent={pl.i(idt)}: {pl.i(d, indent=idt, value_no_color=True)}')
+                print(f'indent={s.i(idt)}: {s.i(d, indent=idt, value_no_color=True)}')
     # check_pl_indent()
 
     def check_pl_color():
-        elm = pl.i('blah', c='y')
-        s = f'haha {elm} a'
-        print(s)
-        s_b = pl.s(s, c='b')
+        elm = s.i('blah', c='y')
+        txt = f'haha {elm} a'
+        print(txt)
+        s_b = s.s(txt, fg='b')
         print(s_b)
-        d = dict(a=1, b=s)
-        print(pl.i(d))
-        print(pl.i(d, value_no_color=True))
+        d = dict(a=1, b=txt)
+        print(s.i(d))
+        print(s.i(d, value_no_color=True))
     # check_pl_color()
 
     def check_pl_sep():
         lst = ['haha', '=>']
-        print(pl.i(lst, sep=' ', pref='', post=''))
+        print(s.i(lst, sep=' ', pref='', post=''))
     # check_pl_sep()
 
     def check_align_d():
         d = dict(a=1, bbbbbbbbbb=2, ccccc=dict(d=3, e=4, f=['as', 'as']))
-        print(pl.i(d))
-        print(pl.i(d, indent=2))
-        print(pl.i(d, align_keys=True))
-        print(pl.i(d, indent=2, align_keys=True))
+        print(s.i(d))
+        print(s.i(d, indent=2))
+        print(s.i(d, align_keys=True))
+        print(s.i(d, indent=2, align_keys=True))
     # check_align_d()
 
     def check_align_edge():
@@ -980,14 +1098,14 @@ if __name__ == '__main__':
             (d3, True),
             (d3, 2)
         ]:
-            print(pl.i(d, align_keys=aln, indent=True))
+            print(s.i(d, align_keys=aln, indent=True))
     # check_align_edge()
 
     def check_dict_tup_key():
         d = {(1, 2): 3, ('foo', 'bar'): 4}
-        print(pl.i(d))
+        print(s.i(d))
         d = dict(a=1, b=2)
-        print(pl.i(d))
+        print(s.i(d))
     # check_dict_tup_key()
 
     def check_now_tz():
@@ -995,4 +1113,4 @@ if __name__ == '__main__':
         sic(now(time_zone='US/Pacific'))
         sic(now(time_zone='US/Eastern'))
         sic(now(time_zone='Europe/London'))
-    check_now_tz()
+    # check_now_tz()

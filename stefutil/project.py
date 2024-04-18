@@ -9,7 +9,7 @@ from typing import List, Dict, Union
 
 from stefutil.container import get
 from stefutil.os_n_file import stem
-from stefutil.prettier import now, ca, get_logger, pl
+from stefutil.prettier import now, ca, get_logger, s
 
 
 __all__ = ['SConfig', 'PathUtil']
@@ -94,7 +94,7 @@ class PathUtil:
                 if not os.path.exists(path):
                     os.makedirs(path)
                     if verbose:
-                        logger.info(f'Created directory {pl.i(path)}')
+                        logger.info(f'Created directory {s.i(path)}')
 
     def save_fig(
             self, title: str = None, save: bool = True, prefix_time: bool = True, save_path: str = None, time_args: Dict = None,
@@ -126,7 +126,7 @@ class PathUtil:
             if 'w/' in title:
                 title = title.replace('w/', 'with')
             elif '/' in title:
-                raise ValueError(f'Invalid title {pl.i(title)} for containing [{pl.i("/")}]')
+                raise ValueError(f'Invalid title {s.i(title)} for containing [{s.i("/")}]')
 
             if prefix_time:
                 fnm = f'{t}_{title}'
@@ -140,4 +140,4 @@ class PathUtil:
             args.update(kwargs)
             plt.savefig(path, **args)
             if self.verbose:
-                logger.info(f'Saved figure to {pl.i(stem(path, top_n=2))}')
+                logger.info(f'Saved figure to {s.i(stem(path, top_n=2))}')

@@ -7,7 +7,7 @@ from typing import Tuple, List, Dict, Iterable, Callable, TypeVar, Any, Union
 from functools import reduce
 from collections import OrderedDict
 
-from stefutil.prettier import pl
+from stefutil.prettier import s
 from stefutil.packaging import _use_dl
 
 
@@ -39,9 +39,9 @@ def get(dic: Dict, ks: str = None):
         acc = dic
         for lvl, k in enumerate(ks):
             if k not in acc:
-                _past_keys = pl.s('=>', c='m').join([pl.i(k) for k in _past_keys])
+                _past_keys = s.s('=>', fg='m').join([s.i(k) for k in _past_keys])
                 d_log = {'past keys': _past_keys, 'available keys': list(acc.keys())}
-                raise ValueError(f'{pl.i(k)} not found at level {pl.i(lvl+1)} with {pl.i(d_log)}')
+                raise ValueError(f'{s.i(k)} not found at level {s.i(lvl + 1)} with {s.i(d_log)}')
             acc = acc[k]
             _past_keys.append(k)
         return acc

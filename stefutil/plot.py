@@ -9,7 +9,7 @@ import logging
 from typing import List, Dict, Iterable, Callable, Any, Union
 from dataclasses import dataclass
 
-from stefutil.prettier import pl, ca, get_logger, Timer
+from stefutil.prettier import s, ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
 
 
@@ -211,11 +211,11 @@ if _use_plot():
 
             logger = logger or _logger
             if verbose:
-                logger.info(f'Running TSNE on {pl.i(len(vects))} vectors w/ args {pl.i(tsne_args_)}')
+                logger.info(f'Running TSNE on {s.i(len(vects))} vectors w/ args {s.i(tsne_args_)}')
             t = Timer()
             vects_reduced = TSNE(**tsne_args_).fit_transform(vects)
             if verbose:
-                logger.info(f'TSNE finished in {pl.i(t.end())}')
+                logger.info(f'TSNE finished in {s.i(t.end())}')
 
             setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
             df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})
@@ -227,11 +227,11 @@ if _use_plot():
             sct_args.update(scatter_kwargs or dict())
 
             if verbose:
-                logger.info(f'Plotting embedded 2D points w/ args {pl.i(sct_args, indent=1)}')
+                logger.info(f'Plotting embedded 2D points w/ args {s.i(sct_args, indent=1)}')
             t = Timer()
             ax = sns.scatterplot(data=df, x='x', y='y', **sct_args)
             if verbose:
-                logger.info(f'Scatterplot finished in {pl.i(t.end())}')
+                logger.info(f'Scatterplot finished in {s.i(t.end())}')
 
             if ellipse:
                 for nm, c in zip(name2vectors.keys(), cs):

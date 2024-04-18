@@ -91,14 +91,14 @@ if _use_dl():
             assert isinstance(texts, list) and len(texts) > 0
             avg_tok_len = round(np.mean([len(punc_tokenize(sent)) for sent in texts]), 2)
             ret = []
-            it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', unit=pl.i('doc'), total=len(texts))
+            it = tqdm(self.nlp.pipe(texts), desc='Preprocessing documents', unit=s.i('doc'), total=len(texts))
             for doc in it:
                 toks = self.process_single(doc)
-                it.set_postfix(tok_len=pl.i(len(toks)))
+                it.set_postfix(tok_len=s.i(len(toks)))
                 ret.append(toks)
             avg_tok_len_ = round(np.mean([len(toks) for toks in ret]), 2)
             if self.verbose:
-                _logger.info(f'Preprocessing finished w/ average token length {pl.i(avg_tok_len)} => {pl.i(avg_tok_len_)}')
+                _logger.info(f'Preprocessing finished w/ average token length {s.i(avg_tok_len)} => {s.i(avg_tok_len_)}')
             return ret
 
         def process_single(self, text: Union[str, Any]) -> List[str]:
@@ -149,7 +149,7 @@ if _use_dl():
 
             lst_vects = np.empty(n_ba, dtype=object)
             it = tqdm(group_n(texts, bsz), total=n_ba, desc=desc, unit='ba')
-            it.set_postfix(n=pl.i(n), bsz=pl.i(bsz))
+            it.set_postfix(n=s.i(n), bsz=s.i(bsz))
 
             enc_args = dict(batch_size=bsz, show_progress_bar=False, )
             enc_args.update(kwargs)

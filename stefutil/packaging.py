@@ -33,7 +33,7 @@ def installed_packages(recompute: bool = False) -> List[str]:
 
 def check_util_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expected_packages: List[str] = None) -> bool:
     # Whether to use certain utilities, based on the environment variable `SU_USE_<type>`
-    flag = os.environ.get(flag_name, 'True')  # by default, import all packages
+    flag = os.environ.get(flag_name, 'False')  # by default, don't import advanced packages
     ca.assert_options(display_name=f'`{flag_name}` Flag', val=flag, options=['True', 'False', 'T', 'F'])
     use = flag in ['True', 'T']
 
@@ -48,10 +48,10 @@ def check_util_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', ex
             if len(expected_packages) > 1:
                 msg = f'packages are'
                 d_log = {'dl-packages-expected': expected_packages, 'dl-packages-found': pkgs_found, 'dl-packages-missing': pkgs_missing}
-                pkg = f'Please install the following packages: {pl.i(d_log)}'
+                pkg = f'Please install the following packages: {s.i(d_log)}'
             else:
                 msg = f'package is'
-                pkg = f'Please install the package {pl.i(expected_packages[0])}.'
+                pkg = f'Please install the package {s.i(expected_packages[0])}.'
             raise ImportError(f'{desc} {msg} not found in the environment when `{flag_name}` is set to True. {pkg}')
     return use
 

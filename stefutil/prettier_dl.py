@@ -71,7 +71,7 @@ class MlPrettier:
                 fmt = f'%{len_lim + 4}.3f'
                 s_val = fmt % val
             if self.with_color:
-                return f'{pl.i(s_val)}/{pl.i(lim)}'
+                return f'{s.i(s_val)}/{s.i(lim)}'
             else:
                 return f'{s_val}/{lim}'  # Pad integer
         elif 'loss' in key:
@@ -277,13 +277,13 @@ if _use_dl():
                 else:
                     pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
                 if pbar and add_pbar_postfix:
-                    tqdm_kws = {k: pl.i(v) for k, v in d_log_p.items() if self._should_add(k)}
+                    tqdm_kws = {k: s.i(v) for k, v in d_log_p.items() if self._should_add(k)}
                     pbar.set_postfix(tqdm_kws)
             if to_console and self.logger:
                 d = d_log_p if self.prettier_console else d_log
                 if self.console_with_split and split_str:
                     d = self.prettier.add_split_prefix(d, split=split_str)
-                msg = pl.i(d)
+                msg = s.i(d)
                 if prefix:
                     msg = f'{prefix}{msg}'
 
@@ -293,7 +293,7 @@ if _use_dl():
                 self.logger.info(msg, extra=extra)
 
             if to_file:
-                msg = pl.nc(d_log)
+                msg = s.nc(d_log)
                 if prefix:
                     msg = f'{prefix}{msg}'
 
