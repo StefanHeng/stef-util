@@ -592,9 +592,12 @@ class MyFormatter(logging.Formatter):
         self.with_color = with_color
 
         if ANSI_BACKEND == 'click':
-            time_style_args = MyFormatter.time.copy()
-            time_style_args.update(style_time or dict())
-            color_time = s.s(MyFormatter.KW_TIME, **time_style_args) + s.s('|', **MyFormatter.sep)
+            self.time_style_args = MyFormatter.time.copy()
+            self.time_style_args.update(style_time or dict())
+            self.sep_style_args = MyFormatter.sep.copy()
+            self.sep_style_args.update(style_sep or dict())
+
+            color_time = s.s(MyFormatter.KW_TIME, **self.time_style_args) + s.s('|', **self.sep_style_args)
         else:
             assert ANSI_BACKEND == 'colorama'
             if style_time:
@@ -606,7 +609,7 @@ class MyFormatter(logging.Formatter):
         def args2fmt(args_):
             if self.with_color:
                 if ANSI_BACKEND == 'click':
-                    return color_time + self.fmt_meta(*args_) + s.s(': ', **MyFormatter.sep) + MyFormatter.KW_MSG + _ansi_reset_all
+                    return color_time + self.fmt_meta(*args_) + s.s(': ', **self.sep_style_args) + MyFormatter.KW_MSG + _ansi_reset_all
                 else:
                     assert ANSI_BACKEND == 'colorama'
                     return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
@@ -622,10 +625,10 @@ class MyFormatter(logging.Formatter):
         if self.with_color:
             if ANSI_BACKEND == 'click':
                 return '[' + s.s(MyFormatter.KW_NAME, fg='m') + ']' \
-                    + s.s('::', **MyFormatter.sep) + s.s(MyFormatter.KW_FUNC_NM, fg='m') \
-                    + s.s('::', **MyFormatter.sep) + s.s(MyFormatter.KW_FNM, fg='m') \
-                    + s.s(':', **MyFormatter.sep) + s.s(MyFormatter.KW_LINENO, fg='m') \
-                    + s.s(':', **MyFormatter.sep) + s.s(meta_abv, **meta_style)
+                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, fg='m') \
+                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, fg='m') \
+                    + s.s(':', **self.sep_style_args) + s.s(MyFormatter.KW_LINENO, fg='m') \
+                    + s.s(':', **self.sep_style_args) + s.s(meta_abv, **meta_style)
             else:
                 assert ANSI_BACKEND == 'colorama'
                 return f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]' \
