@@ -239,7 +239,11 @@ class PrettyStyler:
                 fg = PrettyStyler.short_c2c.get(fg, fg)
             if bg:
                 bg = PrettyStyler.short_c2c.get(bg, bg)
-            txt = click.style(text=f'{text:>{pad}}'if pad else text, fg=fg, bg=bg, bold=bold, **style_kwargs)
+            # add default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
+            if not fg and not bg and not bold and style_kwargs == dict():
+                txt = text
+            else:
+                txt = click.style(text=f'{text:>{pad}}'if pad else text, fg=fg, bg=bg, bold=bold, **style_kwargs)
             if as_str:
                 return txt
             else:
@@ -932,7 +936,7 @@ if __name__ == '__main__':
     def check_logi():
         d = dict(a=1, b=2)
         print(s.i(d))
-    check_logi()
+    # check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
@@ -945,7 +949,7 @@ if __name__ == '__main__':
     def check_logger():
         logger = get_logger('blah')
         logger.info('should appear once')
-    check_logger()
+    # check_logger()
 
     def check_now():
         sic(now(fmt='full'))
@@ -985,7 +989,9 @@ if __name__ == '__main__':
         print(s.i(d, pad_float=False))
         print(s.pa(d))
         print(s.pa(d, pad_float=False))
-    # check_float_pad()
+
+        sic(s.pa(d, pad_float=False))
+    check_float_pad()
 
     def check_ordinal():
         sic([ordinal(n) for n in range(1, 32)])
@@ -1014,7 +1020,7 @@ if __name__ == '__main__':
         d_log = dict(a=1, b=2, c='test')
         logger.info(s.i(d_log))
         logger.info('only to file', extra=dict(block='stdout'))
-    check_both_handler()
+    # check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])

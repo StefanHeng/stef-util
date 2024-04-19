@@ -170,6 +170,7 @@ def describe(vals: Iterable, round_dec: int = None) -> Dict[str, Any]:
     ret = df.describe().to_dict()['value']
     if round_dec:
         ret = {k: round(v, round_dec) for k, v in ret.items()}
+    ret['count'] = int(ret['count'])
     return ret
 
 

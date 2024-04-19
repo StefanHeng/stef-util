@@ -22,10 +22,11 @@ setup(
         'tqdm', 'icecream'
     ],
     extras_require={
+        'legacy_styling': ['sty', 'colorama'],
         'plot':  ['matplotlib', 'seaborn'],
         'machine_learning': ['scikit-learn'],
         'deep_learning': ['spacy', 'torch', 'transformers>=4.33.2', 'sentence-transformers', 'tensorboard'],
-        'optional': ['pyinstrument']
+        'optional': ['pygments', 'pyinstrument']
     },
     keywords=[
         'python',
