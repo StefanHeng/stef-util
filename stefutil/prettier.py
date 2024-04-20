@@ -192,7 +192,7 @@ class PrettyStyler:
             w='white',
         )
         # also add the bright versions, mapping to names used by `click.style()`
-        short_c2c.update({f'B{c}': f'bright_{c}' for c in short_c2c.keys()})
+        short_c2c.update({f'B{c}': f'bright_{c_}' for c, c_ in short_c2c.items()})
         short_c2c.update(  # now set default colors for each logging type
             log='green',
             warn='yellow',
@@ -554,7 +554,8 @@ class MyFormatter(logging.Formatter):
     if ANSI_BACKEND == 'click':
         # styling for each level and for time prefix
         time = dict(fg='g')
-        sep = dict(fg='b')
+        sep = dict(fg='Bb')  # bright blue
+        ref = dict(fg='Bm')  # bright magenta
 
         debug = dict(fg=None, dim=True, bold=True)
         info = dict(fg=None, bold=True)
@@ -590,7 +591,9 @@ class MyFormatter(logging.Formatter):
     KW_FUNC_NM = '%(funcName)s'
     KW_NAME = '%(name)s'
 
-    def __init__(self, with_color=True, style_time: Dict[str, Any] = None, style_sep: Dict[str, Any] = None):
+    def __init__(
+            self, with_color=True, style_time: Dict[str, Any] = None, style_sep: Dict[str, Any] = None, style_ref: Dict[str, Any] = None
+    ):
         # time set to green by default, punc separator set to green by default
         super().__init__()
         self.with_color = with_color
@@ -600,6 +603,8 @@ class MyFormatter(logging.Formatter):
             self.time_style_args.update(style_time or dict())
             self.sep_style_args = MyFormatter.sep.copy()
             self.sep_style_args.update(style_sep or dict())
+            self.ref_style_args = MyFormatter.ref.copy()
+            self.ref_style_args.update(style_ref or dict())
 
             color_time = s.s(MyFormatter.KW_TIME, **self.time_style_args) + s.s('|', **self.sep_style_args)
         else:
@@ -628,10 +633,10 @@ class MyFormatter(logging.Formatter):
     def fmt_meta(self, meta_abv, meta_style: Union[str, Dict[str, Any]] = None):
         if self.with_color:
             if ANSI_BACKEND == 'click':
-                return '[' + s.s(MyFormatter.KW_NAME, fg='m') + ']' \
-                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, fg='m') \
-                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, fg='m') \
-                    + s.s(':', **self.sep_style_args) + s.s(MyFormatter.KW_LINENO, fg='m') \
+                return '[' + s.s(MyFormatter.KW_NAME, **self.ref_style_args) + ']' \
+                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, **self.ref_style_args) \
+                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, **self.ref_style_args) \
+                    + s.s(':', **self.sep_style_args) + s.s(MyFormatter.KW_LINENO, **self.ref_style_args) \
                     + s.s(':', **self.sep_style_args) + s.s(meta_abv, **meta_style)
             else:
                 assert ANSI_BACKEND == 'colorama'
@@ -949,7 +954,7 @@ if __name__ == '__main__':
     def check_logger():
         logger = get_logger('blah')
         logger.info('should appear once')
-    # check_logger()
+    check_logger()
 
     def check_now():
         sic(now(fmt='full'))
@@ -991,7 +996,7 @@ if __name__ == '__main__':
         print(s.pa(d, pad_float=False))
 
         sic(s.pa(d, pad_float=False))
-    check_float_pad()
+    # check_float_pad()
 
     def check_ordinal():
         sic([ordinal(n) for n in range(1, 32)])
@@ -1123,3 +1128,10 @@ if __name__ == '__main__':
         sic(now(time_zone='US/Eastern'))
         sic(now(time_zone='Europe/London'))
     # check_now_tz()
+
+    def check_intense_color():
+        print(s.s('hello', fg='m'))
+        print(s.s('hello', fg='m', bold=True))
+        print(s.s('hello', fg='Bm'))
+        print(s.s('hello', fg='Bm', bold=True))
+    check_intense_color()
