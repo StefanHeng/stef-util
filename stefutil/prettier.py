@@ -11,7 +11,7 @@ import pprint
 import string
 import logging
 import datetime
-from typing import Tuple, List, Dict, Iterable, Union, Optional, Any
+from typing import Tuple, List, Dict, Iterable, Union, Optional, Any, Callable
 from dataclasses import dataclass
 from collections import OrderedDict
 
@@ -25,7 +25,7 @@ __all__ = [
     'set_pd_style',
     'MyIceCreamDebugger', 'sic', 'PrettyStyler', 's',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler',
+    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'AnsiFileMap',
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
@@ -149,11 +149,13 @@ class AdjustIndentOutput:
     sep: str = None
 
 
-def _adjust_indentation(prefix: str = None, postfix: str = None, sep: str = None, indent: int = None) -> AdjustIndentOutput:
-    idt = "\t" * indent
+def _adjust_indentation(
+        prefix: str = None, postfix: str = None, sep: str = None, indent_level: int = None, indent_str: str = '\t'
+) -> AdjustIndentOutput:
+    idt = indent_str * indent_level
     pref = f'{prefix}\n{idt}'
     sep = f'{sep.strip()}\n{idt}'
-    idt = "\t" * (indent - 1)
+    idt = indent_str * (indent_level - 1)
     post = f'\n{idt}{postfix}'
     return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
 
@@ -239,7 +241,7 @@ class PrettyStyler:
                 fg = PrettyStyler.short_c2c.get(fg, fg)
             if bg:
                 bg = PrettyStyler.short_c2c.get(bg, bg)
-            # add default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
+            # add the default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
             if not fg and not bg and not bold and style_kwargs == dict():
                 txt = text
             else:
@@ -276,12 +278,14 @@ class PrettyStyler:
         return PrettyStyler.log(text, fg=fg, as_str=True, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(text, indent: Union[int, bool, str] = None, **kwargs):
+    def i(text, indent: Union[int, bool, str] = None, indent_str: str = '\t', **kwargs):
         """
-        Syntactic sugar for logging `info` as string
+        syntactic sugar for logging `info` as string
 
-        :param text: Text to log
-        :param indent: Maximum indentation level, will be propagated through dict and list only
+        :param text: text to log.
+        :param indent: maximum indentation level.
+            this will be propagated through dict and list only.
+        :param indent_str: string for one level of indentation.
         """
         if indent is not None and 'curr_indent' not in kwargs:
             if isinstance(indent, str):
@@ -294,6 +298,8 @@ class PrettyStyler:
             else:
                 assert isinstance(indent, int) and indent > 0  # sanity check
             kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
+            kwargs['indent_str'] = indent_str
+
         # otherwise, already a nested internal call
         if isinstance(text, dict):
             return PrettyStyler._dict(text, **kwargs)
@@ -377,7 +383,10 @@ class PrettyStyler:
         return f'{pref}{sep.join(lst)}{post}'
 
     @staticmethod
-    def _list(lst: List, sep: str = None, for_path: bool = False, curr_indent: int = None, indent_end: int = None, **kwargs) -> str:
+    def _list(
+            lst: List, sep: str = None, for_path: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
+            **kwargs
+    ) -> str:
         args = dict(with_color=True, for_path=False, pref='[', post=']', curr_indent=curr_indent, indent_end=indent_end)
         if sep is None:
             args['sep'] = ',' if for_path else ', '
@@ -388,7 +397,7 @@ class PrettyStyler:
         if curr_indent is not None and len(lst) > 0:
             indent = curr_indent
             pref, post, sep = args['pref'], args['post'], args['sep']
-            out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent=indent)
+            out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent_level=indent, indent_str=indent_str)
             args['pref'], args['post'], args['sep'] = out.prefix, out.postfix, out.sep
         return PrettyStyler._iter(lst, **args)
 
@@ -402,8 +411,8 @@ class PrettyStyler:
     def _dict(
             d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
-            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, value_no_color: bool = False,
-            align_keys: Union[bool, int] = False,
+            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
+            value_no_color: bool = False, align_keys: Union[bool, int] = False,
             **kwargs
     ) -> str:
         """
@@ -474,7 +483,7 @@ class PrettyStyler:
         pairs_sep_ = pairs_sep
         if curr_indent is not None:
             indent = curr_indent
-            out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent=indent)
+            out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent_level=indent, indent_str=indent_str)
             pref, post, pairs_sep_ = out.prefix, out.postfix, out.sep
         if with_color:
             pref, post = PrettyStyler.s(pref, fg='m'), PrettyStyler.s(post, fg='m')
@@ -499,7 +508,7 @@ def sanitize_str(text: str) -> str:
     return ret
 
 
-def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int], Tuple[float]]:
+def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int, ...], Tuple[float, ...]]:
     # Modified from https://stackoverflow.com/a/62083599/10732321
     if not hasattr(hex2rgb, 'regex'):
         hex2rgb.regex = re.compile(r'#[a-fA-F\d]{3}(?:[a-fA-F\d]{3})?$')
@@ -553,12 +562,14 @@ class MyFormatter(logging.Formatter):
     """
     if ANSI_BACKEND == 'click':
         # styling for each level and for time prefix
-        time = dict(fg='g')
+        # time = dict(fg='g')
+        time = dict(fg='Bg', italic=True)
         sep = dict(fg='Bb')  # bright blue
         ref = dict(fg='Bm')  # bright magenta
 
         debug = dict(fg=None, dim=True, bold=True)
         info = dict(fg=None, bold=True)
+        # info = dict(fg='g')
         warning = dict(fg='y', bold=True)
         error = dict(fg='r', bold=True)
         critical = dict(fg='m', bold=True)
@@ -623,7 +634,7 @@ class MyFormatter(logging.Formatter):
                     assert ANSI_BACKEND == 'colorama'
                     return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
             else:
-                return f'{MyFormatter.KW_TIME}| {self.fmt_meta(*args_)}: {MyFormatter.KW_MSG}'
+                return f'{MyFormatter.KW_TIME}|{self.fmt_meta(*args_)}:{MyFormatter.KW_MSG}'
 
         self.formats = {level: args2fmt(args) for level, args in MyFormatter.LVL_MAP.items()}
         self.formatter = {
@@ -640,11 +651,11 @@ class MyFormatter(logging.Formatter):
                     + s.s(':', **self.sep_style_args) + s.s(meta_abv, **meta_style)
             else:
                 assert ANSI_BACKEND == 'colorama'
-                return f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]' \
-                   f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}' \
-                   f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}' \
-                   f'{MyFormatter.blue}:{MyFormatter.purple}{MyFormatter.KW_LINENO}' \
-                   f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}'
+                return (f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]'
+                        f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}'
+                        f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}'
+                        f'{MyFormatter.blue}:{MyFormatter.purple}{MyFormatter.KW_LINENO}'
+                        f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}')
         else:
             return f'[{MyFormatter.KW_NAME}] {MyFormatter.KW_FUNC_NM}::{MyFormatter.KW_FNM}' \
                    f':{MyFormatter.KW_LINENO}, {meta_abv}'
@@ -720,8 +731,24 @@ def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Unio
     logger.setLevel(level)
 
 
+class AnsiFileMap:
+    """
+    Some built-in mapping functions for ANSI file handler
+    """
+    @staticmethod
+    def insert_before_log(file_path: str) -> str:
+        if file_path.endswith('.log'):
+            file_path = file_path[:-4]
+        return f'{file_path}.ansi.log'
+
+    @staticmethod
+    def append_ext(file_path: str) -> str:
+        return f'{file_path}.ansi'
+
+
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug'
+        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug',
+        ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
     :param kind: Handler kind, one of [`stdout`, `file`, `file-w/-ansi`, `both`, `both+ansi`, `file+ansi`].
@@ -733,19 +760,18 @@ def get_logging_handler(
         If `file+ansi`, both file write handlers w/ and w/o ANSI style filtering
     :param file_path: File path for file logging.
     :param level: Logging level for the handler.
+    :param ansi_file_map: Mapping function for the ANSI file handler:
+        Returns the mapped file path for ANSI given the original file path.
     """
-    if kind in ['both', 'both+ansi', 'file+ansi']:
+    if kind in ['both', 'both+ansi', 'file+ansi']:  # recursive case
         std, fl_ansi = None, None
         fl = get_logging_handler(kind='file', file_path=file_path)
 
         if kind in ['both', 'both+ansi']:
             std = get_logging_handler(kind='stdout')
         if kind in ['both+ansi', 'file+ansi']:
-            if file_path.endswith('.log'):
-                file_path = file_path[:-4]
-            file_path = f'{file_path}.ansi.log'
-
-            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=file_path)
+            map_ = ansi_file_map or AnsiFileMap.append_ext
+            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=map_(file_path))
 
         if kind == 'both':
             return [std, fl]
@@ -754,25 +780,25 @@ def get_logging_handler(
         else:
             assert kind == 'file+ansi'
             return [fl_ansi, fl]
+    else:  # base cases
+        if kind == 'stdout':
+            handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
+        else:
+            assert kind in ['file', 'file-w/-ansi']
+            if not file_path:
+                raise ValueError(f'{s.i(file_path)} must be specified for {s.i("file")} logging')
 
-    if kind == 'stdout':
-        handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
-    else:
-        assert kind in ['file', 'file-w/-ansi']
-        if not file_path:
-            raise ValueError(f'{s.i(file_path)} must be specified for {s.i("file")} logging')
+            dnm = os.path.dirname(file_path)
+            if dnm and not os.path.exists(dnm):
+                os.makedirs(dnm, exist_ok=True)
 
-        dnm = os.path.dirname(file_path)
-        if dnm and not os.path.exists(dnm):
-            os.makedirs(dnm, exist_ok=True)
-
-        # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
-        cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
-        handler = cls(file_path)
-    set_level(handler, level=level)
-    handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
-    handler.addFilter(HandlerFilter(handler_name=kind))
-    return handler
+            # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
+            cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
+            handler = cls(file_path)
+        set_level(handler, level=level)
+        handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'file-w/-ansi']))
+        handler.addFilter(HandlerFilter(handler_name=kind))
+        return handler
 
 
 def drop_file_handler(logger: logging.Logger = None):
@@ -814,10 +840,10 @@ def get_logger(
         name: str, kind: str = 'stdout', level: Union[str, int] = 'debug', file_path: str = None
 ) -> logging.Logger:
     """
-    :param name: Name of the logger.
-    :param kind: Logger type, one of [`stdout`, `file`, `both`].
+    :param name: name of the logger.
+    :param kind: logger type, one of [`stdout`, `file`, `both`].
         `both` intended for writing to terminal with color and *then* removing styles for file.
-    :param level: Logging level.
+    :param level: logging level.
     :param file_path: the file path for file logging.
     """
     assert kind in ['stdout', 'file-write', 'both', 'both+ansi'], f'Logger kind {s.i(kind)} not recognized'
@@ -867,7 +893,7 @@ class CheckArg:
     def __init__(self, ignore_none: bool = True, verbose: bool = False):
         """
         :param ignore_none: If true, arguments passed in as `None` will not raise error
-        :param verbose: If true, logging are print to console
+        :param verbose: If true, logging messages are print to console
         """
         self.d_name2func = dict()
         self.ignore_none = ignore_none
@@ -1074,6 +1100,8 @@ if __name__ == '__main__':
 
         d_log = dict(a=1, b=2, c='test')
         logger.info(s.i(d_log))
+        logger.info(s.i(d_log, indent=True))
+        logger.info(s.i(d_log, indent=True, indent_str=' ' * 4))
         logger.info('only to file', extra=dict(block='stdout'))
     check_both_handler()
 

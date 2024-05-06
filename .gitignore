@@ -2,6 +2,8 @@
 test-lang.py
 test-logi.txt
 .DS_Store
+*.ansi.log
+*.log.ansi
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
