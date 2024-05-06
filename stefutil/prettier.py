@@ -26,7 +26,7 @@ __all__ = [
     'MyIceCreamDebugger', 'sic', 'PrettyStyler', 's',
     'str2ascii_str', 'sanitize_str',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler',
-    'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_file_handler', 'drop_file_handler',
+    'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
     'now'
@@ -723,18 +723,37 @@ def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Unio
 def get_logging_handler(
         kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug'
 ) -> Union[logging.Handler, List[logging.Handler]]:
-    if kind in ['both', 'both+ansi']:
-        std = get_logging_handler(kind='stdout')
+    """
+    :param kind: Handler kind, one of [`stdout`, `file`, `file-w/-ansi`, `both`, `both+ansi`, `file+ansi`].
+        If `stdout`, handler for stdout
+        If `file`, handler for file write (with ANSI style filtering)
+        If `file-w/-ansi`, handler for file write as is (i.e., without ANSI style filtering)
+        If `both`, both stdout and file write handlers
+        If `both+ansi`, `both` + file write handlers with ANSI style filtering
+        If `file+ansi`, both file write handlers w/ and w/o ANSI style filtering
+    :param file_path: File path for file logging.
+    :param level: Logging level for the handler.
+    """
+    if kind in ['both', 'both+ansi', 'file+ansi']:
+        std, fl_ansi = None, None
         fl = get_logging_handler(kind='file', file_path=file_path)
-        if kind == 'both':
-            return [std, fl]
-        else:  # `both+ansi`
+
+        if kind in ['both', 'both+ansi']:
+            std = get_logging_handler(kind='stdout')
+        if kind in ['both+ansi', 'file+ansi']:
             if file_path.endswith('.log'):
                 file_path = file_path[:-4]
             file_path = f'{file_path}.ansi.log'
 
             fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=file_path)
+
+        if kind == 'both':
+            return [std, fl]
+        elif kind == 'both+ansi':
             return [std, fl_ansi, fl]
+        else:
+            assert kind == 'file+ansi'
+            return [fl_ansi, fl]
 
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
@@ -756,27 +775,39 @@ def get_logging_handler(
     return handler
 
 
-def add_file_handler(
-        logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True
-):
+def drop_file_handler(logger: logging.Logger = None):
     """
-    Adds a file handler to the logger
+    Removes all `FileHandler`s from the logger
+    """
+    rmv = []
+    for h in logger.handlers:
+        if isinstance(h, logging.FileHandler):
+            logger.removeHandler(h)
+            rmv.append(h)
+    if len(rmv) > 0:
+        logger.info(f'Handlers {s.i(rmv)} removed')
+    return logger
 
-    Removes prior all `FileHandler`s if exists
+
+def add_log_handler(logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+    """
+    Adds handler(s) to the logger
     """
     handlers = get_logging_handler(kind=kind, file_path=file_path)
 
     if drop_prev_handlers:
-        for h in logger.handlers:
-            if isinstance(h, logging.FileHandler):
-                logger.removeHandler(h)
-                logger.info(f'Prior Handler {s.i(h)} removed')
+        drop_file_handler(logger=logger)
 
     if not isinstance(handlers, list):
         handlers = [handlers]
     for handler in handlers:
         logger.addHandler(handler)
     return logger
+
+
+def add_file_handler(logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+    assert kind in ['file', 'file-w/-ansi', 'file+ansi'], f'Handler kind {s.i(kind)} not recognized'
+    return add_log_handler(logger, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers)
 
 
 def get_logger(
@@ -794,27 +825,8 @@ def get_logger(
     logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
     set_level(logger, level=level)
 
-    # handlers = get_logging_handler(kind=kind, file_path=file_path)
-    # if not isinstance(handlers, list):
-    #     handlers = [handlers]
-    # for handler in handlers:
-    #     logger.addHandler(handler)
-    add_file_handler(logger, file_path=file_path, kind=kind)
+    add_log_handler(logger, file_path=file_path, kind=kind)
     logger.propagate = False
-    return logger
-
-
-def drop_file_handler(logger: logging.Logger):
-    """
-    Removes all `FileHandler`s from the logger
-    """
-    rmv = []
-    for h in logger.handlers:
-        if isinstance(h, logging.FileHandler):
-            logger.removeHandler(h)
-            rmv.append(h)
-    if len(rmv) > 0:
-        logger.info(f'Handlers {s.i(rmv)} removed')
     return logger
 
 
@@ -1045,10 +1057,21 @@ if __name__ == '__main__':
     def check_both_handler():
         # sic('now creating handler')
         print('now creating handler')
-        # logger = get_logger('test-both', kind='stdout')
-        # kd = 'both'
-        kd = 'both+ansi'
-        logger = get_logger('test-both', kind=kd, file_path='test-both-handler.log')
+
+        log_nm, fnm = 'test-both', 'test-both-handler.log'
+
+        # direct = True
+        direct = False
+        if direct:
+            # kd = 'both'
+            kd = 'both+ansi'
+            logger = get_logger(log_nm, kind=kd, file_path=fnm)
+        else:
+            logger = get_logger(log_nm, kind='stdout')
+            # kd = 'file'
+            kd = 'file+ansi'
+            add_file_handler(logger, file_path=fnm, kind=kd)
+
         d_log = dict(a=1, b=2, c='test')
         logger.info(s.i(d_log))
         logger.info('only to file', extra=dict(block='stdout'))
