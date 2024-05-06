@@ -757,14 +757,14 @@ def get_logging_handler(
 
 
 def add_file_handler(
-        logger: logging.Logger = None, file_path: str = None, handler_kind: str = 'file', drop_prev_handlers: bool = True
+        logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True
 ):
     """
     Adds a file handler to the logger
 
     Removes prior all `FileHandler`s if exists
     """
-    handlers = get_logging_handler(kind=handler_kind, file_path=file_path)
+    handlers = get_logging_handler(kind=kind, file_path=file_path)
 
     if drop_prev_handlers:
         for h in logger.handlers:
@@ -799,7 +799,7 @@ def get_logger(
     #     handlers = [handlers]
     # for handler in handlers:
     #     logger.addHandler(handler)
-    add_file_handler(logger, file_path=file_path, handler_kind=kind)
+    add_file_handler(logger, file_path=file_path, kind=kind)
     logger.propagate = False
     return logger
 
