@@ -723,59 +723,84 @@ def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Unio
 def get_logging_handler(
         kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug'
 ) -> Union[logging.Handler, List[logging.Handler]]:
-    if kind == 'both':
-        return [get_logging_handler(kind='stdout'), get_logging_handler(kind='file', file_path=file_path)]
+    if kind in ['both', 'both+ansi']:
+        std = get_logging_handler(kind='stdout')
+        fl = get_logging_handler(kind='file', file_path=file_path)
+        if kind == 'both':
+            return [std, fl]
+        else:  # `both+ansi`
+            if file_path.endswith('.log'):
+                file_path = file_path[:-4]
+            file_path = f'{file_path}.ansi.log'
+
+            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=file_path)
+            return [std, fl_ansi, fl]
+
     if kind == 'stdout':
         handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
-    else:  # `file`
+    else:
+        assert kind in ['file', 'file-w/-ansi']
         if not file_path:
             raise ValueError(f'{s.i(file_path)} must be specified for {s.i("file")} logging')
 
         dnm = os.path.dirname(file_path)
         if dnm and not os.path.exists(dnm):
             os.makedirs(dnm, exist_ok=True)
-        handler = CleanAnsiFileHandler(file_path)
+
+        # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
+        cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
+        handler = cls(file_path)
     set_level(handler, level=level)
     handler.setFormatter(MyFormatter(with_color=kind == 'stdout'))
     handler.addFilter(HandlerFilter(handler_name=kind))
     return handler
 
 
-def get_logger(
-        name: str, kind: str = 'stdout', level: Union[str, int] = 'debug', file_path: str = None
-) -> logging.Logger:
-    """
-    :param name: Name of the logger
-    :param kind: Logger type, one of [`stdout`, `file`, `both`]
-        `both` intended for writing to terminal with color and *then* removing styles for file
-    :param file_path: file path for file logging
-    """
-    assert kind in ['stdout', 'file-write', 'both']
-    logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
-    logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
-    set_level(logger, level=level)
-
-    handlers = get_logging_handler(kind=kind, file_path=file_path)
-    if not isinstance(handlers, list):
-        handlers = [handlers]
-    for handler in handlers:
-        logger.addHandler(handler)
-    logger.propagate = False
-    return logger
-
-
-def add_file_handler(logger: logging.Logger, file_path: str):
+def add_file_handler(
+        logger: logging.Logger = None, file_path: str = None, handler_kind: str = 'file', drop_prev_handlers: bool = True
+):
     """
     Adds a file handler to the logger
 
     Removes prior all `FileHandler`s if exists
     """
-    handler = get_logging_handler(kind='file', file_path=file_path)
-    for h in logger.handlers:
-        if isinstance(h, logging.FileHandler):
-            logger.removeHandler(h)
-            logger.info(f'Prior Handler {s.i(h)} removed')
-    logger.addHandler(handler)
+    handlers = get_logging_handler(kind=handler_kind, file_path=file_path)
+
+    if drop_prev_handlers:
+        for h in logger.handlers:
+            if isinstance(h, logging.FileHandler):
+                logger.removeHandler(h)
+                logger.info(f'Prior Handler {s.i(h)} removed')
+
+    if not isinstance(handlers, list):
+        handlers = [handlers]
+    for handler in handlers:
+        logger.addHandler(handler)
+    return logger
+
+
+def get_logger(
+        name: str, kind: str = 'stdout', level: Union[str, int] = 'debug', file_path: str = None
+) -> logging.Logger:
+    """
+    :param name: Name of the logger.
+    :param kind: Logger type, one of [`stdout`, `file`, `both`].
+        `both` intended for writing to terminal with color and *then* removing styles for file.
+    :param level: Logging level.
+    :param file_path: the file path for file logging.
+    """
+    assert kind in ['stdout', 'file-write', 'both', 'both+ansi'], f'Logger kind {s.i(kind)} not recognized'
+    logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
+    logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
+    set_level(logger, level=level)
+
+    # handlers = get_logging_handler(kind=kind, file_path=file_path)
+    # if not isinstance(handlers, list):
+    #     handlers = [handlers]
+    # for handler in handlers:
+    #     logger.addHandler(handler)
+    add_file_handler(logger, file_path=file_path, handler_kind=kind)
+    logger.propagate = False
     return logger
 
 
@@ -954,7 +979,7 @@ if __name__ == '__main__':
     def check_logger():
         logger = get_logger('blah')
         logger.info('should appear once')
-    check_logger()
+    # check_logger()
 
     def check_now():
         sic(now(fmt='full'))
@@ -1021,11 +1046,13 @@ if __name__ == '__main__':
         # sic('now creating handler')
         print('now creating handler')
         # logger = get_logger('test-both', kind='stdout')
-        logger = get_logger('test-both', kind='both', file_path='test-both-handler.log')
+        # kd = 'both'
+        kd = 'both+ansi'
+        logger = get_logger('test-both', kind=kd, file_path='test-both-handler.log')
         d_log = dict(a=1, b=2, c='test')
         logger.info(s.i(d_log))
         logger.info('only to file', extra=dict(block='stdout'))
-    # check_both_handler()
+    check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
@@ -1134,4 +1161,23 @@ if __name__ == '__main__':
         print(s.s('hello', fg='m', bold=True))
         print(s.s('hello', fg='Bm'))
         print(s.s('hello', fg='Bm', bold=True))
-    check_intense_color()
+    # check_intense_color()
+
+    def check_coloring():
+        for i in range(8):
+            pref_normal = f'\033[0;3{i}m'
+            pref_intense = f'\033[0;9{i}m'
+            print(f'{pref_normal}normal{pref_intense}intense')
+            # sic(pref_normal, pref_intense)
+
+        for c in ['bl', 'b', 'r', 'g', 'y', 'm', 'c', 'w']:
+            bc = f'B{c}'
+            txt = c + s.s(f'normal', fg=c) + ' ' + s.s(f'bold', fg=c, bold=True) + ' ' + s.s(f'bright', fg=bc) + ' ' + s.s(f'bright bold', fg=bc, bold=True)
+            print(txt)
+            # print(txt.replace(' ', '\n')
+            # sic(s.s(f'bright', fg=bc))
+        # print(s.i('normal', fg='m') + s.i('intense', fg='m', bold=True))
+
+        logger = get_logger(__name__)
+        logger.info('hello')
+    # check_coloring()

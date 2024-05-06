@@ -8,7 +8,7 @@ from os.path import join as os_join
 from typing import List, Dict, Union
 
 from stefutil.container import get
-from stefutil.os_n_file import stem
+from stefutil.os_n_file import rel_path
 from stefutil.prettier import now, ca, get_logger, s
 
 
@@ -101,14 +101,14 @@ class PathUtil:
             fmt: str = 'png', **kwargs
     ):
         """
-        :param title: Rendered figure title
-        :param save: If true, figure is saved to project plot directory
+        :param title: Rendered figure title.
+        :param save: If true, the figure is saved to project plot directory.
             No effect otherwise
-        :param prefix_time: If true, timestamp is prefixed before filename
-            Otherwise, timestamp is appended to the end
-        :param save_path: disk path to save figure
-        :param time_args: `now` arguments
-        :param fmt: file format
+        :param prefix_time: If true, timestamp is prefixed before filename.
+            Otherwise, timestamp is appended to the end.
+        :param save_path: Disk path to save the figure.
+        :param time_args: `now` arguments/
+        :param fmt: file format.
         """
         if save:
             try:
@@ -140,4 +140,4 @@ class PathUtil:
             args.update(kwargs)
             plt.savefig(path, **args)
             if self.verbose:
-                logger.info(f'Saved figure to {s.i(stem(path, top_n=2))}')
+                logger.info(f'Saved figure to {s.i(rel_path(path))}')

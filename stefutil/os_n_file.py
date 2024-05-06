@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Union
 
 
-__all__ = ['get_hostname', 'stem']
+__all__ = ['get_hostname', 'stem', 'rel_path']
 
 
 def get_hostname() -> str:
@@ -40,10 +40,17 @@ def stem(
         dirs += [ret]
         return dirs if as_list else os_join(*dirs)
     else:
-        # if it's a directory, always keep extension
+        # if it's a directory, always keep the extension
         if os.path.exists(path) and os.path.isdir(path):
             keep_ext = True
         return os.path.basename(path) if keep_ext else Path(path).stem
+
+
+def rel_path(path: Union[str, Path], k: int = 3) -> str:
+    """
+    Syntactic sugar for a `stem` use case, keeping the top `k` parent dirs
+    """
+    return stem(path, top_n=k, keep_ext=True)
 
 
 if __name__ == '__main__':
@@ -57,4 +64,10 @@ if __name__ == '__main__':
         print(stem(path, top_n=n, as_list=True))
         print(path_)
         print(stem(path_, top_n=n))
-    check_stem()
+    # check_stem()
+
+    def check_rel():
+        n = 4
+        path = __file__
+        print(rel_path(path, k=n))
+    check_rel()
