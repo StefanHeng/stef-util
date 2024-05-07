@@ -278,7 +278,7 @@ class PrettyStyler:
         return PrettyStyler.log(text, fg=fg, as_str=True, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(text, indent: Union[int, bool, str] = None, indent_str: str = '\t', **kwargs):
+    def i(text, indent: Union[int, bool, str] = None, indent_str: str = ' ' * 4, **kwargs):
         """
         syntactic sugar for logging `info` as string
 
@@ -1015,7 +1015,7 @@ if __name__ == '__main__':
         print(s.i(d))
         print(s.i(txt))
         print(s.i(txt, indent=True))
-    check_logi()
+    # check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
@@ -1113,8 +1113,9 @@ if __name__ == '__main__':
         logger.info(s.i(d_log))
         logger.info(s.i(d_log, indent=True))
         logger.info(s.i(d_log, indent=True, indent_str=' ' * 4))
+        logger.info(s.i(d_log, indent=True, indent_str='\t'))
         logger.info('only to file', extra=dict(block='stdout'))
-    # check_both_handler()
+    check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
@@ -1246,4 +1247,4 @@ if __name__ == '__main__':
 
     def check_date():
         sic(date())
-    check_date()
+    # check_date()
