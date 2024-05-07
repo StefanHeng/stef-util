@@ -29,7 +29,7 @@ __all__ = [
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
-    'now'
+    'now', 'date'
 ]
 
 
@@ -315,7 +315,8 @@ class PrettyStyler:
             if ANSI_BACKEND == 'click':
                 kwargs_['bold'] = True
             kwargs_.update(kwargs)
-            for k in ['pad_float', 'for_path', 'value_no_color']:
+            # not needed for base case string styling
+            for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str']:
                 kwargs_.pop(k, None)
             return PrettyStyler.s(text, **kwargs_)
 
@@ -985,6 +986,13 @@ def now(
         return d
 
 
+def date():
+    """
+    syntactic sugar for `now()` to just get the date
+    """
+    return now(for_path=True, fmt='short-date')
+
+
 if __name__ == '__main__':
     # lg = get_logger('test')
     # lg.info('test')
@@ -1003,8 +1011,11 @@ if __name__ == '__main__':
 
     def check_logi():
         d = dict(a=1, b=2)
+        txt = 'hello'
         print(s.i(d))
-    # check_logi()
+        print(s.i(txt))
+        print(s.i(txt, indent=True))
+    check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
@@ -1103,7 +1114,7 @@ if __name__ == '__main__':
         logger.info(s.i(d_log, indent=True))
         logger.info(s.i(d_log, indent=True, indent_str=' ' * 4))
         logger.info('only to file', extra=dict(block='stdout'))
-    check_both_handler()
+    # check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
@@ -1232,3 +1243,7 @@ if __name__ == '__main__':
         logger = get_logger(__name__)
         logger.info('hello')
     # check_coloring()
+
+    def check_date():
+        sic(date())
+    check_date()
