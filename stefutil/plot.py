@@ -4,6 +4,7 @@ plotting
 see also `StefUtil.save_fig`
 """
 
+
 import math
 import logging
 from typing import List, Dict, Iterable, Callable, Any, Union
@@ -11,8 +12,6 @@ from dataclasses import dataclass
 
 from stefutil.prettier import s, ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
-
-
 from stefutil.packaging import _use_plot, _use_ml
 
 

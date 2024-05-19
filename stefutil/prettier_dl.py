@@ -8,7 +8,7 @@ from collections.abc import Sized
 
 from tqdm.auto import tqdm
 
-from stefutil.prettier import *
+from stefutil.prettier import s, ca
 from stefutil.packaging import _use_dl
 
 
@@ -306,6 +306,8 @@ if _use_dl():
 
 
 if __name__ == '__main__':
+    from stefutil.prettier import sic
+
     def check_prettier():
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
         sic(mp.single(key='global_step', val=4))

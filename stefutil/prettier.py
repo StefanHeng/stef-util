@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 from icecream import IceCreamDebugger
 
-from stefutil.primitive import *
+from stefutil.primitive import is_float, float_is_sci
 
 
 __all__ = [
@@ -262,7 +262,8 @@ class PrettyStyler:
         if any(x is t for t in [None, True, False]):
             ret = d[x]
         else:
-            ret = d.get(type(x), dict())
+            tp = float if is_float(x=x) else type(x)  # handles the case where `x` is a string representation of a float
+            ret = d.get(tp, dict())
         return ret.copy()
 
     @staticmethod
@@ -1294,7 +1295,7 @@ if __name__ == '__main__':
         logger.info('hello')
         logger.warning('world')
         logger.error(f"I'm {s.i('Stefan')}")
-    check_coloring()
+    # check_coloring()
 
     def check_date():
         sic(date())
@@ -1326,4 +1327,6 @@ if __name__ == '__main__':
     def check_style_diff_objects():
         d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
         print(s.i(d))
-    # check_style_diff_objects()
+        d = dict(g='5', h='4.2', i='world')
+        print(s.i(d))
+    check_style_diff_objects()

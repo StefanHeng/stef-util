@@ -7,7 +7,7 @@ import time
 from os.path import join as os_join
 from typing import Callable, Union, Any
 
-from stefutil.prettier import *
+from stefutil.prettier import ca, date
 
 
 __all__ = ['profile_runtime', 'RecurseLimit']
@@ -56,7 +56,7 @@ def profile_runtime(
         else:
             profiler.print(color=True)
     if write or output_dir_name or output_file_name:
-        now_ = now(for_path=True, fmt='short-full')
+        now_ = date()
         fnm = 'Cumulative-Runtime-Profile' if mode == 'cumulative' else 'Call-Stack-Profile'
         fnm = f'{now_}_{fnm}'
         if output_file_name:

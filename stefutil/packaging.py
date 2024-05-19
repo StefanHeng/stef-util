@@ -10,7 +10,7 @@ import os
 import importlib.metadata
 from typing import List
 
-from stefutil.prettier import *
+from stefutil.prettier import s, ca
 
 
 __all__ = [

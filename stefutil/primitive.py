@@ -23,10 +23,10 @@ def float_is_sci(f: Union[float, str]) -> bool:
 def is_float(x: Any, no_int=False, no_sci=False) -> bool:
     try:
         f = float(x)
-        is_int = f.is_integer()
+        is_int_ = f.is_integer()
         out = True
         if no_int:
-            out = out and (not is_int)
+            out = out and (not is_int_)
         if no_sci:
             out = out and (not float_is_sci(x))
         return out
