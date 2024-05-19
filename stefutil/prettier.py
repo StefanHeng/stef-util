@@ -609,16 +609,19 @@ class MyFormatter(logging.Formatter):
     if ANSI_BACKEND == 'click':
         # styling for each level and for time prefix
         # time = dict(fg='g')
-        time = dict(fg='Bg', italic=True)
-        sep = dict(fg='Bb')  # bright blue
-        ref = dict(fg='Bm')  # bright magenta
+        # time = dict(fg='Bg', italic=True)
+        time = dict(fg='g', italic=True)
+        # sep = dict(fg='Bb')  # bright blue
+        sep = dict(fg='m')
+        # ref = dict(fg='Bm')  # bright magenta
+        ref = dict(fg='b')
 
-        debug = dict(fg=None, dim=True, bold=True)
-        info = dict(fg=None, bold=True)
+        debug = dict(fg='none', dim=True, bold=False, italic=True)
+        info = dict(fg='none', bold=False, italic=True)
         # info = dict(fg='g')
-        warning = dict(fg='y', bold=True)
-        error = dict(fg='r', bold=True)
-        critical = dict(fg='m', bold=True)
+        warning = dict(fg='y', bold=False, italic=True)
+        error = dict(fg='r', bold=False, italic=True)
+        critical = dict(fg='m', bold=False, italic=True)
     else:
         assert ANSI_BACKEND == 'colorama'
 
@@ -1288,7 +1291,9 @@ if __name__ == '__main__':
 
         logger = get_logger(__name__)
         logger.info('hello')
-    # check_coloring()
+        logger.warning('world')
+        logger.error(f"I'm {s.i('Stefan')}")
+    check_coloring()
 
     def check_date():
         sic(date())
@@ -1320,4 +1325,4 @@ if __name__ == '__main__':
     def check_style_diff_objects():
         d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
         print(s.i(d))
-    check_style_diff_objects()
+    # check_style_diff_objects()
