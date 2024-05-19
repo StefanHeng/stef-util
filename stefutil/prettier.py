@@ -53,11 +53,13 @@ def fmt_num(num: Union[float, int], suffix: str = '') -> str:
     return "%.1f%s%s" % (num, 'Y', suffix)
 
 
-def fmt_sizeof(num: int, suffix='B') -> str:
+def fmt_sizeof(num: int, suffix='B', stop_power: Union[int, float] = 1) -> str:
     """ Converts byte size to human-readable format """
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+        if abs(num) < 1024.0 ** stop_power:
+            n_digit_before_decimal = round(3 * stop_power)
+            fmt = f"%{n_digit_before_decimal}.1f%s%s"
+            return fmt % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
@@ -203,6 +205,15 @@ class PrettyStyler:
             info='blue',
             i='blue',
         )
+
+        var_type2style = {
+            None: dict(fg='Bm', italic=True),
+            True: dict(fg='Bg', italic=True),
+            False: dict(fg='Br', italic=True),
+            int: dict(fg='Bc'),
+            float: dict(fg='Bc'),
+            str: dict(fg='Bg'),
+        }
     else:
         assert ANSI_BACKEND == 'colorama'
         reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
@@ -230,22 +241,53 @@ class PrettyStyler:
         )
 
     @staticmethod
-    def log(text, fg: str = 'log', bg: str = None, c_time='green', as_str=False, bold: bool = False, pad: int = None, **style_kwargs):
+    def log(
+            x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = None,
+            c_time: str = None, as_str= None, pad: int = None, **style_kwargs
+    ) -> str:
         """
         main function for styling, optionally prints to console with timestamp
         """
+        args: Dict[str, Any] = PrettyStyler._get_default_style(x)
+        args.update({
+            k: v for k, v in dict(fg=fg, bg=bg, bold=bold, c_time=c_time, as_str=as_str, pad=pad, **style_kwargs).items()
+            if v is not None
+        })
+        return PrettyStyler._log(x, **args)
+
+    @staticmethod
+    def _get_default_style(x: Union[int, float, bool, str, None]):
+        # get custom styling by type of object
+        d = PrettyStyler.var_type2style
+        if any(x is t for t in [None, True, False]):
+            ret = d[x]
+        else:
+            ret = d.get(type(x), dict())
+        return ret.copy()
+
+    @staticmethod
+    def _log(
+            x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = False,
+            c_time='green', as_str=False, pad: int = None, **style_kwargs
+    ) -> str:
         if ANSI_BACKEND == 'click':
             if pad:
                 raise NotImplementedError
             if fg:
-                fg = PrettyStyler.short_c2c.get(fg, fg)
+                if fg == 'none':
+                    fg = None
+                else:
+                    fg = PrettyStyler.short_c2c.get(fg, fg)
             if bg:
-                bg = PrettyStyler.short_c2c.get(bg, bg)
+                if bg == 'none':
+                    bg = None
+                else:
+                    bg = PrettyStyler.short_c2c.get(bg, bg)
             # add the default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
             if not fg and not bg and not bold and style_kwargs == dict():
-                txt = text
+                txt = x
             else:
-                txt = click.style(text=f'{text:>{pad}}'if pad else text, fg=fg, bg=bg, bold=bold, **style_kwargs)
+                txt = click.style(text=f'{x:>{pad}}'if pad else x, fg=fg, bg=bg, bold=bold, **style_kwargs)
             if as_str:
                 return txt
             else:
@@ -264,9 +306,9 @@ class PrettyStyler:
                 need_reset = True
             reset = PrettyStyler.reset if need_reset else ''
             if as_str:
-                return f'{fg}{text:>{pad}}{reset}' if pad else f'{fg}{text}{reset}'
+                return f'{fg}{x:>{pad}}{reset}' if pad else f'{fg}{x}{reset}'
             else:
-                print(f'{fg}{PrettyStyler.log(now(), fg=c_time, as_str=True)}| {text}{reset}')
+                print(f'{fg}{PrettyStyler.log(now(), fg=c_time, as_str=True)}| {x}{reset}')
 
     @staticmethod
     def s(text, fg: str = None, bold: bool = False, with_color: bool = True, **style_kwargs) -> str:
@@ -274,15 +316,15 @@ class PrettyStyler:
         syntactic sugar for return string instead of print
         """
         if not with_color:
-            fg, bold = None, None
+            fg, bg, bold = 'none', 'none', False
         return PrettyStyler.log(text, fg=fg, as_str=True, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(text, indent: Union[int, bool, str] = None, indent_str: str = ' ' * 4, **kwargs):
+    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, **kwargs):
         """
         syntactic sugar for logging `info` as string
 
-        :param text: text to log.
+        :param x: text to log.
         :param indent: maximum indentation level.
             this will be propagated through dict and list only.
         :param indent_str: string for one level of indentation.
@@ -301,27 +343,30 @@ class PrettyStyler:
             kwargs['indent_str'] = indent_str
 
         # otherwise, already a nested internal call
-        if isinstance(text, dict):
-            return PrettyStyler._dict(text, **kwargs)
-        elif isinstance(text, list):
-            return PrettyStyler._list(text, **kwargs)
-        elif isinstance(text, tuple):
-            return PrettyStyler._tuple(text, **kwargs)
-        elif isinstance(text, float):
-            text = PrettyStyler._float(text, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
-            return PrettyStyler.i(text, **kwargs)
+        if isinstance(x, dict):
+            return PrettyStyler._dict(x, **kwargs)
+        elif isinstance(x, list):
+            return PrettyStyler._list(x, **kwargs)
+        elif isinstance(x, tuple):
+            return PrettyStyler._tuple(x, **kwargs)
+        elif isinstance(x, float):
+            args = PrettyStyler._get_default_style(x)
+            x = PrettyStyler._float(x, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
+            args.update(kwargs)
+            return PrettyStyler.i(x, **args)
         else:  # base case
-            kwargs_ = dict(fg='b')
+            # kwargs_ = dict(fg='b')
+            kwargs_ = dict()
             if ANSI_BACKEND == 'click':
                 kwargs_['bold'] = True
             kwargs_.update(kwargs)
             # not needed for base case string styling
             for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str']:
                 kwargs_.pop(k, None)
-            return PrettyStyler.s(text, **kwargs_)
+            return PrettyStyler.s(x, **kwargs_)
 
     @staticmethod
-    def _float(f: float, pad: int = None) -> str:
+    def _float(f: float, pad: int = None) -> Union[str, float]:
         if float_is_sci(f):
             return str(f).replace('e-0', 'e-').replace('e+0', 'e+')  # remove leading 0
         elif pad:
@@ -1115,7 +1160,7 @@ if __name__ == '__main__':
         logger.info(s.i(d_log, indent=True, indent_str=' ' * 4))
         logger.info(s.i(d_log, indent=True, indent_str='\t'))
         logger.info('only to file', extra=dict(block='stdout'))
-    check_both_handler()
+    # check_both_handler()
 
     def check_pa():
         d = dict(a=1, b=True, c='hell', d=dict(e=1, f=True, g='hell'), e=['a', 'b', 'c'])
@@ -1248,3 +1293,31 @@ if __name__ == '__main__':
     def check_date():
         sic(date())
     # check_date()
+
+    def check_sizeof():
+        sz = 4124_1231_4442
+        sic(fmt_sizeof(sz, stop_power=2))
+        sic(fmt_sizeof(sz, stop_power=1.9))
+        sic(fmt_sizeof(sz, stop_power=1.5))
+        sic(fmt_sizeof(sz, stop_power=1))
+    # check_sizeof()
+
+    def check_rich_log():
+        import logging
+        from rich.logging import RichHandler
+
+        FORMAT = "%(message)s"
+        handler = RichHandler(markup=False, highlighter=False)
+        handler.setFormatter(MyFormatter())
+        logging.basicConfig(
+            level="NOTSET", format=FORMAT, datefmt="[%X]", handlers=[handler]
+        )
+
+        log = logging.getLogger("rich")
+        log.info("Hello, World!")
+    # check_rich_log()
+
+    def check_style_diff_objects():
+        d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
+        print(s.i(d))
+    check_style_diff_objects()

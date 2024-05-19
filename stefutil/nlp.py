@@ -22,17 +22,23 @@ _logger = get_logger(__name__)
 # _pattern_space = re.compile(r'\s+')  # match one or more whitespace
 _pattern_term = re.compile(r'\w+|[^\s\w]+')  # match one or more alphanumeric or non-whitespace-non-alphanumeric
 _pattern_term_split = re.compile(r'(\w+|[^\s\w])')  # adjacent punctuations are separate tokens
+_pattern_term_digit = re.compile(r'\w+|[^\s\w]+|\d')  # match one or more alphanumeric, non-whitespace-non-alphanumeric, or digits
+_pattern_term_split_digit = re.compile(r'(\w+|[^\s\w]|\d)')  # adjacent punctuations and digits are separate tokens
 
 
-def punc_tokenize(sentence: str, split_adjacent_puncs: bool = True) -> List[str]:
+def punc_tokenize(sentence: str, split_adjacent_puncs: bool = True, split_digits: bool = False) -> List[str]:
     """
     Split sentence into tokens, split on any punctuation or whitespace
         e.g. `SOCCER-JAPAN` => [`SOCCER`, `-`, `JAPAN`]
 
     :param sentence: sentence to tokenize
     :param split_adjacent_puncs: whether to split adjacent punctuations into separate tokens
+    :param split_digits: whether to split digits into separate tokens
     """
-    pat = _pattern_term_split if split_adjacent_puncs else _pattern_term
+    if split_adjacent_puncs:
+        pat = _pattern_term_split_digit if split_digits else _pattern_term_split
+    else:
+        pat = _pattern_term_digit if split_digits else _pattern_term
     return pat.findall(sentence)
 
 
@@ -172,13 +178,14 @@ if __name__ == '__main__':
     # check_process()
 
     def check_punc_tokenize():
-        s = 'Are there any romantic movies from the 90s on Disney+?'
-        sic(punc_tokenize(s))
-    # check_punc_tokenize()
+        # txt = 'Are there any romantic movies from the 90s on Disney+?'
+        txt = 'The serotonin 6 (5-HT6) receptor is therapeutically targeted by'
+        sic(punc_tokenize(txt))
+    check_punc_tokenize()
 
     def check_enc():
         texts = ['hello world 1', 'hello world 2', 'hello world 3'] * 4
         se = SbertEncoder()
         vects = se(texts, batch_size=2)
         sic(vects.shape)
-    check_enc()
+    # check_enc()
