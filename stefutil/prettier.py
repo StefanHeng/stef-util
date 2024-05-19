@@ -610,7 +610,8 @@ class MyFormatter(logging.Formatter):
         # styling for each level and for time prefix
         # time = dict(fg='g')
         # time = dict(fg='Bg', italic=True)
-        time = dict(fg='g', italic=True)
+        # time = dict(fg='g', italic=True)
+        time = dict(fg='c', italic=True)
         # sep = dict(fg='Bb')  # bright blue
         sep = dict(fg='m')
         # ref = dict(fg='Bm')  # bright magenta
