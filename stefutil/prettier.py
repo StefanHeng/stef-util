@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from collections import OrderedDict
 
 from icecream import IceCreamDebugger
+from rich.console import Console
 from rich.progress import ProgressType, TaskProgressColumn, ProgressColumn, Progress
 
 from stefutil.primitive import is_float, float_is_sci
@@ -24,7 +25,8 @@ from stefutil.primitive import is_float, float_is_sci
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
     'set_pd_style',
-    'MyIceCreamDebugger', 'sic', 'PrettyStyler', 's',
+    'MyIceCreamDebugger', 'sic', 'rc', 'cl',
+    'render_nested_ansi_pairs', 'PrettyStyler', 's',
     'str2ascii_str', 'sanitize_str',
     'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'AnsiFileMap',
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
@@ -143,7 +145,20 @@ class MyIceCreamDebugger(IceCreamDebugger):
             self.argToStringFunction = lambda x: pprint.pformat(x, width=value)
 
 
+# syntactic sugar
 sic = MyIceCreamDebugger()
+
+rc = Console()
+cl = rc.log
+
+
+def enclose_in_quote(txt: str) -> str:
+    """
+    Enclose a string in quotes
+    """
+    # handle cases where the sentence itself is double-quoted, or contain double quotes, use single quotes
+    quote = "'" if '"' in txt else '"'
+    return f'{quote}{txt}{quote}'
 
 
 @dataclass
@@ -185,6 +200,56 @@ else:
     assert ANSI_BACKEND == 'colorama'  # legacy
     import sty
     import colorama
+
+
+def render_nested_ansi_pairs(text: str = None):
+    """
+    process naive (ANSI style, reset) pairs to render as the expected nested pair-wise styling
+
+    user need to ensure that
+        1> the ANSI codes are paired,
+        2> this function should be called once on such a paired string
+    """
+    pattern_ansi = re.compile(r'\x1b\[[0-9;]*m')
+    reset_code = _ansi_reset_all
+
+    # ============ split into segments by ANSI code ============
+    segments = pattern_ansi.split(text)
+    codes = pattern_ansi.findall(text)
+    assert len(segments) == len(codes) + 1  # sanity check
+
+    # ============ sanity check ansi codes are indeed pairs ============
+    malformed = False
+    if len(codes) % 2 != 0:
+        malformed = True
+    if sum(code == reset_code for code in codes) != len(codes) // 2:
+        malformed = True
+    if malformed:
+        raise ValueError(f'ANSI codes in text are not paired in {s.i(text)} - Have you called this rendering function already?')
+
+    active_styles = []  # "active" ANSI style stack
+    parts, segments = segments[:1], segments[1:]  # for 1st segment not enclosed in ANSI code
+
+    for segment, code in zip(segments, codes):
+        if code == reset_code:
+            if active_styles:
+                active_styles.pop()
+        else:
+            active_styles.append(code)
+
+        # ============ enclose each segment in (the corresponding ANSI codes, reset) pair ============
+        has_style = len(active_styles) > 0
+        if has_style:
+            parts.extend(active_styles)
+
+        parts.append(segment)
+
+        if has_style:
+            parts.append(reset_code)
+
+    if parts[-1] != reset_code:
+        parts.append(reset_code)  # for joining w/ other strings after
+    return ''.join(parts)
 
 
 class PrettyStyler:
@@ -251,7 +316,7 @@ class PrettyStyler:
     @staticmethod
     def log(
             x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = None,
-            c_time: str = None, as_str= None, pad: int = None, **style_kwargs
+            c_time: str = None, as_str: bool = None, pad: int = None, **style_kwargs
     ) -> str:
         """
         main function for styling, optionally prints to console with timestamp
@@ -277,8 +342,11 @@ class PrettyStyler:
     @staticmethod
     def _log(
             x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = False,
-            c_time='green', as_str=False, pad: int = None, **style_kwargs
+            c_time='green', as_str=False, pad: int = None, quote_str: bool = False, **style_kwargs
     ) -> str:
+        if as_str and isinstance(x, str) and not is_float(x) and quote_str:
+            x = enclose_in_quote(x)
+
         if ANSI_BACKEND in ['click', 'rich']:
             if pad:
                 raise NotImplementedError
@@ -309,7 +377,8 @@ class PrettyStyler:
             if as_str:
                 return txt
             else:
-                t = click.style(text=now(), fg=c_time, bold=bold)
+                # t = click.style(text=now(), fg=c_time, bold=bold)
+                t = PrettyStyler.log(now(), fg=c_time, as_str=True)
                 print(f'{t}| {txt}')
         else:
             if style_kwargs:
@@ -338,7 +407,7 @@ class PrettyStyler:
         return PrettyStyler.log(text, fg=fg, as_str=True, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, **kwargs):
+    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, render_nested_style: bool = False, **kwargs):
         """
         syntactic sugar for logging `info` as string
 
@@ -346,42 +415,49 @@ class PrettyStyler:
         :param indent: maximum indentation level.
             this will be propagated through dict and list only.
         :param indent_str: string for one level of indentation.
+        :param render_nested_style: whether to render nested ANSI styles at the end.
+            intended when the input passed in already contains local ANSI styles, see `render_nested_ansi_pairs`.
         """
-        if indent is not None and 'curr_indent' not in kwargs:
-            if isinstance(indent, str):
-                if indent != 'all':
-                    raise ValueError(f'Indentation type {s.i(indent)} not recognized')
-                indent = float('inf')
-            elif isinstance(indent, bool):
-                assert indent is True
-                indent = float('inf')
-            else:
-                assert isinstance(indent, int) and indent > 0  # sanity check
-            kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
-            kwargs['indent_str'] = indent_str
+        if render_nested_style:  # as a syntactic sugar; make a recursive call w/ all other params
+            ret = PrettyStyler.i(x, indent=indent, indent_str=indent_str, **kwargs)
+            return render_nested_ansi_pairs(ret)
 
-        # otherwise, already a nested internal call
-        if isinstance(x, dict):
-            return PrettyStyler._dict(x, **kwargs)
-        elif isinstance(x, list):
-            return PrettyStyler._list(x, **kwargs)
-        elif isinstance(x, tuple):
-            return PrettyStyler._tuple(x, **kwargs)
-        elif isinstance(x, float):
-            args = PrettyStyler._get_default_style(x)
-            x = PrettyStyler._float(x, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
-            args.update(kwargs)
-            return PrettyStyler.i(x, **args)
-        else:  # base case
-            # kwargs_ = dict(fg='b')
-            kwargs_ = dict()
-            if ANSI_BACKEND != 'colorama':  # doesn't support `bold`
-                kwargs_['bold'] = True
-            kwargs_.update(kwargs)
-            # not needed for base case string styling
-            for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str']:
-                kwargs_.pop(k, None)
-            return PrettyStyler.s(x, **kwargs_)
+        else:
+            if indent is not None and 'curr_indent' not in kwargs:
+                if isinstance(indent, str):
+                    if indent != 'all':
+                        raise ValueError(f'Indentation type {s.i(indent)} not recognized')
+                    indent = float('inf')
+                elif isinstance(indent, bool):
+                    assert indent is True
+                    indent = float('inf')
+                else:
+                    assert isinstance(indent, int) and indent > 0  # sanity check
+                kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
+                kwargs['indent_str'] = indent_str
+
+            # otherwise, already a nested internal call
+            if isinstance(x, dict):
+                return PrettyStyler._dict(x, **kwargs)
+            elif isinstance(x, list):
+                return PrettyStyler._list(x, **kwargs)
+            elif isinstance(x, tuple):
+                return PrettyStyler._tuple(x, **kwargs)
+            elif isinstance(x, float):
+                args = PrettyStyler._get_default_style(x)
+                x = PrettyStyler._float(x, pad=kwargs.get('pad') or kwargs.pop('pad_float', None))
+                args.update(kwargs)
+                return PrettyStyler.i(x, **args)
+            else:  # base case
+                # kwargs_ = dict(fg='b')
+                kwargs_ = dict()
+                if ANSI_BACKEND != 'colorama':  # doesn't support `bold`
+                    kwargs_['bold'] = True
+                kwargs_.update(kwargs)
+                # not needed for base case string styling
+                for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str']:
+                    kwargs_.pop(k, None)
+                return PrettyStyler.s(x, **kwargs_)
 
     @staticmethod
     def _float(f: float, pad: int = None) -> Union[str, float]:
@@ -473,7 +549,9 @@ class PrettyStyler:
 
     @staticmethod
     def _dict(
-            d: Dict = None, with_color=True, pad_float: int = None, key_value_sep: str = ': ', pairs_sep: str = ', ',
+            d: Dict = None,
+            with_color=True, pad_float: int = None,  # base case args
+            key_value_sep: str = ': ', pairs_sep: str = ', ',  # dict specific args
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
             omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
             value_no_color: bool = False, align_keys: Union[bool, int] = False,
@@ -526,7 +604,7 @@ class PrettyStyler:
                 #         return PrettyLogger.i(v) if with_color else v
                 else:
                     # return PrettyLogger.i(v) if with_color else v
-                    return PrettyStyler.i(v, with_color=c, pad_float=pad_float)
+                    return PrettyStyler.i(v, with_color=c, pad_float=pad_float, **kwargs)
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
@@ -1553,10 +1631,11 @@ if __name__ == '__main__':
     # check_rich_log()
 
     def check_style_diff_objects():
-        d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
-        print(s.i(d))
+        # d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
+        # print(s.i(d))
         d = dict(g='5', h='4.2', i='world')
-        print(s.i(d))
+        # print(s.i(d))
+        print(s.i(d, quote_str=True))
     # check_style_diff_objects()
 
     def check_rich_pbar():
@@ -1595,10 +1674,47 @@ if __name__ == '__main__':
             # sic(ch)
             update(dur=t_ms, char=ch)
             time.sleep(t_ms / 1000)
-    check_rich_pbar_field()
+    # check_rich_pbar_field()
 
     def check_rich_backend_colors():
         txt = 'hello'
         for c in ['magenta', 'dodger_blue2', 'dark_red']:
             print(c + s.i(txt, fg=c))
     # check_rich_backend_colors()
+
+    def check_nested_style():
+        def show_single(text_: str = None):
+            text_ansi = render_nested_ansi_pairs(text_)
+            print(f'before: {text_}\nafter:  {text_ansi}\n')
+            # sic(text_ansi)
+
+        text = s.i(f'hello {s.i("world", fg="y")}! bro')
+        show_single(text)
+
+        text = s.i(f'hello {s.i("world", fg="y", italic=True)}! bro')
+        show_single(text)
+        
+        text = f'say {s.i("hello", italic=True, fg="y")} big {s.i("world", fg="m")}!'
+        text = s.i(text, fg="r", bold=False)
+        show_single(text)
+
+        text = f'[{text}]'
+        show_single(text)
+
+        text = s.i(text, underline=True)
+        text = s.i(f'yo {text} hey', fg='b', dim=True)
+        text = f'aa {text} bb'
+        show_single(text)
+
+        d = dict(a=1, b=2, c=dict(text=text, d='guy'))
+        print(d)
+        print(s.i(d))
+        print(render_nested_ansi_pairs(s.i(d)))
+    check_nested_style()
+
+    def check_ansi_reset():
+        # txt = s.i('hello', italic=True, fg="y") + 'world'
+        txt = s.i('hello', underline=True, fg="y") + 'world'
+        print(txt)
+        # sic(txt)
+    # check_ansi_reset()
