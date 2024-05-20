@@ -11,11 +11,12 @@ import pprint
 import string
 import logging
 import datetime
-from typing import Tuple, List, Dict, Iterable, Union, Optional, Any, Callable
+from typing import Tuple, List, Dict, Iterable, Union, Optional, Any, Callable, Sequence
 from dataclasses import dataclass
 from collections import OrderedDict
 
 from icecream import IceCreamDebugger
+from rich.progress import ProgressType, TaskProgressColumn, ProgressColumn, Progress
 
 from stefutil.primitive import is_float, float_is_sci
 
@@ -29,7 +30,8 @@ __all__ = [
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
-    'now', 'date'
+    'now', 'date',
+    'rich_progress'
 ]
 
 
@@ -164,15 +166,21 @@ def _adjust_indentation(
 
 # support the `colorama` package for terminal ANSI styling as legacy backend
 # by default, use `click.style()` for less & composable code
-_ansi_backend = os.environ.get('SU_ANSI_BACKEND', 'click')
-if _ansi_backend not in ['click', 'colorama']:
+# default_ansi_backend = 'click'
+default_ansi_backend = 'rich'
+_ansi_backend = os.environ.get('SU_ANSI_BACKEND', default_ansi_backend)
+if _ansi_backend not in ['click', 'rich', 'colorama']:
     raise ValueError(f'ANSI backend {_ansi_backend} not recognized')
 ANSI_BACKEND = _ansi_backend
 
 if ANSI_BACKEND == 'click':
     import click
 
-    _ansi_reset_all = '\033[0m'  # taken from `click
+    _ansi_reset_all = '\033[0m'  # taken from `click.termui`
+elif ANSI_BACKEND == 'rich':
+    import rich.style
+
+    _ansi_reset_all = '\033[0m'
 else:
     assert ANSI_BACKEND == 'colorama'  # legacy
     import sty
@@ -183,7 +191,7 @@ class PrettyStyler:
     """
     My logging w/ color & formatting, and a lot of syntactic sugar
     """
-    if ANSI_BACKEND == 'click':  # `click.style()` already handles various colors, here stores the mapping from my rep
+    if ANSI_BACKEND in ['click', 'rich']:  # `click.style()` already handles various colors, here stores the mapping from my rep
         # start with my shortcut mapping
         short_c2c = dict(
             bl='black',
@@ -271,7 +279,7 @@ class PrettyStyler:
             x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = False,
             c_time='green', as_str=False, pad: int = None, **style_kwargs
     ) -> str:
-        if ANSI_BACKEND == 'click':
+        if ANSI_BACKEND in ['click', 'rich']:
             if pad:
                 raise NotImplementedError
             if fg:
@@ -288,7 +296,16 @@ class PrettyStyler:
             if not fg and not bg and not bold and style_kwargs == dict():
                 txt = x
             else:
-                txt = click.style(text=f'{x:>{pad}}'if pad else x, fg=fg, bg=bg, bold=bold, **style_kwargs)
+                x = f'{x:>{pad}}' if pad else x
+
+                style_args = dict(fg=fg, bg=bg, bold=bold, **style_kwargs)
+                if ANSI_BACKEND == 'rich':  # `rich` uses `color` and `bgcolor` instead of `fg` and `bg`
+                    style_args['color'] = style_args.pop('fg', None)
+                    style_args['bgcolor'] = style_args.pop('bg', None)
+                    style = rich.style.Style(**style_args)
+                    txt = style.render(text=x)
+                else:  # `click`
+                    txt = click.style(text=x, **style_args)
             if as_str:
                 return txt
             else:
@@ -358,7 +375,7 @@ class PrettyStyler:
         else:  # base case
             # kwargs_ = dict(fg='b')
             kwargs_ = dict()
-            if ANSI_BACKEND == 'click':
+            if ANSI_BACKEND != 'colorama':  # doesn't support `bold`
                 kwargs_['bold'] = True
             kwargs_.update(kwargs)
             # not needed for base case string styling
@@ -607,7 +624,7 @@ class MyFormatter(logging.Formatter):
 
     Default styling: Time in green, metadata indicates severity, plain log message
     """
-    if ANSI_BACKEND == 'click':
+    if ANSI_BACKEND in ['click', 'rich']:
         # styling for each level and for time prefix
         # time = dict(fg='g')
         # time = dict(fg='Bg', italic=True)
@@ -660,7 +677,7 @@ class MyFormatter(logging.Formatter):
         super().__init__()
         self.with_color = with_color
 
-        if ANSI_BACKEND == 'click':
+        if ANSI_BACKEND in ['click', 'rich']:
             self.time_style_args = MyFormatter.time.copy()
             self.time_style_args.update(style_time or dict())
             self.sep_style_args = MyFormatter.sep.copy()
@@ -679,7 +696,7 @@ class MyFormatter(logging.Formatter):
 
         def args2fmt(args_):
             if self.with_color:
-                if ANSI_BACKEND == 'click':
+                if ANSI_BACKEND in ['click', 'rich']:
                     return color_time + self.fmt_meta(*args_) + s.s(': ', **self.sep_style_args) + MyFormatter.KW_MSG + _ansi_reset_all
                 else:
                     assert ANSI_BACKEND == 'colorama'
@@ -694,7 +711,7 @@ class MyFormatter(logging.Formatter):
 
     def fmt_meta(self, meta_abv, meta_style: Union[str, Dict[str, Any]] = None):
         if self.with_color:
-            if ANSI_BACKEND == 'click':
+            if ANSI_BACKEND in ['click', 'rich']:
                 return '[' + s.s(MyFormatter.KW_NAME, **self.ref_style_args) + ']' \
                     + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, **self.ref_style_args) \
                     + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, **self.ref_style_args) \
@@ -1043,6 +1060,217 @@ def date():
     return now(for_path=True, fmt='short-date')
 
 
+class SpeedTaskProgressColumn(TaskProgressColumn):
+    """
+    subclass override to always render speed like `tqdm`
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.show_speed = True
+
+    @classmethod
+    def render_speed(cls, speed: Optional[float]) -> 'rich.text.Text':
+        # ======================================= Begin of added =======================================
+        from rich.text import Text
+        from rich import filesize
+        # ======================================= End of added =======================================
+        if speed is None:
+            return Text("", style="progress.percentage")
+        unit, suffix = filesize.pick_unit_and_suffix(
+            int(speed),
+            ["", "×10³", "×10⁶", "×10⁹", "×10¹²"],
+            1000,
+        )
+        data_speed = speed / unit
+        # ======================================= Begin of modified =======================================
+        # return Text(f"{data_speed:.1f}{suffix} it/s", style="progress.percentage")
+        return Text(f"{data_speed:.1f}{suffix}it/s", style="progress.percentage")  # drop the space
+        # ======================================= End of modified =======================================
+
+    def render(self, task: 'rich.progress.Task') -> 'rich.text.Text':
+        # ======================================= Begin of modified =======================================
+        # if task.total is None and self.show_speed:
+        if self.show_speed:  # i.e., always show speed
+            return self.render_speed(task.finished_speed or task.speed)
+        # text_format = (
+        #     self.text_format_no_percentage if task.total is None else self.text_format
+        # )
+        # _text = text_format.format(task=task)
+        # if self.markup:
+        #     text = Text.from_markup(_text, style=self.style, justify=self.justify)
+        # else:
+        #     text = Text(_text, style=self.style, justify=self.justify)
+        # if self.highlighter:
+        #     self.highlighter.highlight(text)
+        # return text
+        # ======================================= End of modified =======================================
+
+
+class CompactTimeElapsedColumn(ProgressColumn):
+    """
+    subclass override to show time elapsed in compact format if possible
+    """
+
+    def render(self, task: 'rich.progress.Task') -> 'rich.text.Text':
+        # ======================================= Begin of added =======================================
+        from rich.text import Text
+        from datetime import timedelta
+        # ======================================= End of added =======================================
+        elapsed = task.finished_time if task.finished else task.elapsed
+        if elapsed is None:
+            return Text("-:--:--", style="progress.elapsed")
+        # ======================================= Begin of modified =======================================
+        # delta = timedelta(seconds=max(0, int(elapsed)))
+        # return Text(str(delta), style="progress.elapsed")
+        secs = max(0, int(elapsed))
+        mm, ss = divmod(secs, 60)
+        hh, mm = divmod(mm, 60)
+        fmt = f'{mm:02d}:{ss:02d}'
+        if hh:
+            fmt = f'{hh}:{fmt}'
+        return Text(fmt, style="progress.elapsed")
+        # ======================================= End of modified ======================================
+
+
+class NoPadProgress(Progress):
+    """
+    subclass override to do our custom padding between progress columns
+    """
+    def make_tasks_table(self, tasks: Iterable['rich.progress.Task']) -> 'rich.table.Table':
+        # ======================================= Begin of added =======================================
+        from rich.table import Column, Table
+        # ======================================= End of added =======================================
+        table_columns = (
+            (
+                Column(no_wrap=True)
+                if isinstance(_column, str)
+                else _column.get_table_column().copy()
+            )
+            for _column in self.columns
+        )
+
+        # ======================================= Begin of modified =======================================
+        # table = Table.grid(*table_columns, padding=(0, 1), expand=self.expand)
+        table = Table.grid(*table_columns, padding=(0, 0), expand=self.expand)
+        # ======================================= End of modified =======================================
+
+        for task in tasks:
+            if task.visible:
+                table.add_row(
+                    *(
+                        (
+                            column.format(task=task)
+                            if isinstance(column, str)
+                            else column(task)
+                        )
+                        for column in self.columns
+                    )
+                )
+        return table
+
+
+def rich_progress(
+        sequence: Union[Sequence[ProgressType], Iterable[ProgressType]] = None,
+        desc: str = None,
+        total: int = None,
+        bar_width: int = None,
+        return_progress: bool = False,
+        fields: Union[List[str], str] = None,
+        field_widths: Union[List[int], int] = None
+) -> Union[Progress, Iterable[ProgressType], Tuple[Iterable[ProgressType], Callable]]:
+    from rich.progress import ProgressColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeRemainingColumn
+
+    # if as_iter is None:
+    #     as_iter = fields is None  # by default, make sure mutually exclusive
+    #
+    # if as_iter:
+    #     if fields is not None:
+    #         raise ValueError(f'Invalid Use Case: Got both {s.i("as_iter")} and {s.i("fields")} specified -'
+    #                          f' To update fields during progress, you should explicitly call {s.i("`progress.update`")}')
+
+    # ============ add padding explicitly ============
+    def get_pad():
+        return TextColumn(' ')
+
+    def get_semantic_pad():
+        return TextColumn(' • ')
+
+    columns: List[ProgressColumn] = []
+    if desc:
+        columns.append(TextColumn('[progress.description]{task.description}'))
+
+    pbar = BarColumn(bar_width=bar_width)
+    columns += [
+        get_pad(), pbar,
+        get_pad(), TaskProgressColumn(), get_pad(), MofNCompleteColumn(),
+        get_semantic_pad(), CompactTimeElapsedColumn(), TextColumn('>'), TimeRemainingColumn(compact=True),
+        get_pad(), SpeedTaskProgressColumn()
+    ]
+    if fields:
+        if isinstance(fields, str):
+            fields = [fields]
+
+        if field_widths:
+            if isinstance(field_widths, int):
+                field_widths = [field_widths] * len(fields)
+            elif len(field_widths) != len(fields):
+                raise ValueError(f'Length of {s.i("field_widths")} must match {s.i("fields")}')
+        else:
+            field_widths = [4] * len(fields)
+
+    has_fields = fields and len(fields) > 0
+    if has_fields:
+        n = len(fields)
+        columns.append(get_semantic_pad())
+
+        if n > 1:  # add enclosing braces before & after
+            columns.append(TextColumn('[magenta]{{'))
+        for i, (key, w) in enumerate(zip(fields, field_widths)):
+            columns += [TextColumn(f"{key}=[blue]{{task.fields[{key}]:>{w}}}")]  # align to right
+
+            if i < n - 1:
+                columns.append(TextColumn(', '))
+        if n > 1:
+            columns.append(TextColumn('[magenta]}}'))
+
+    progress = Progress(*columns)
+    if return_progress:
+        return progress
+
+    else:
+        if not has_fields:
+            def ret():
+                with progress:
+                    yield from progress.track(sequence, total=total, description=desc)
+            return ret()
+        else:
+            from rich.progress import length_hint, _TrackThread
+            # modified from `rich.progress.track`
+            if total is None:
+                total = float(length_hint(sequence)) or None
+
+            task_args = {k: '_' * w for k, w in zip(fields, field_widths)} if fields else dict()
+            task_id = progress.add_task(desc, total=total, **task_args)
+
+            assert progress.live.auto_refresh
+
+            def update_callback(**fields_):
+                if not progress.finished:
+                    # progress.update(task_id, advance=1, **fields_)
+                    progress.update(task_id, advance=0, **fields_)
+
+            def _ret():
+                with _TrackThread(progress=progress, task_id=task_id, update_period=0.1) as track_thread:
+                    for value in sequence:
+                        yield value
+                        track_thread.completed += 1
+
+            def ret():
+                with progress:
+                    yield from _ret()
+            return ret(), update_callback
+
+
 if __name__ == '__main__':
     # lg = get_logger('test')
     # lg.info('test')
@@ -1329,4 +1557,48 @@ if __name__ == '__main__':
         print(s.i(d))
         d = dict(g='5', h='4.2', i='world')
         print(s.i(d))
-    check_style_diff_objects()
+    # check_style_diff_objects()
+
+    def check_rich_pbar():
+        import time
+        for i in rich_progress(range(100), desc='Processing...'):
+            time.sleep(0.05)
+    # check_rich_pbar()
+
+    # def check_rich_pbar_prog():
+    #     import time
+    #     import random
+    #
+    #     with rich_progress(desc='Processing...', fields='dur') as progress:
+    #         task_id = progress.add_task('blah', total=1000, dur='--')
+    #         while not progress.finished:
+    #             t_ms = random.randint(5, 500)
+    #             progress.update(task_id, advance=1, dur=t_ms)
+    #             time.sleep(t_ms / 1000)
+    # check_rich_pbar_prog()
+
+    def check_rich_pbar_field():
+        import time
+        import random
+
+        # seq = range(100)
+        seq = range(20)
+        # desc = f'Processing {s.i("hey")}...'  # TODO: try their styling
+        desc = f'Processing [bold green]hey[/bold green]...'
+        it, update = rich_progress(sequence=seq, desc=desc, fields=['dur', 'char'])
+        for i in it:
+            t_ms = random.randint(5, 500)
+            ch = random.sample('abcde', 2)
+            ch = ''.join(ch)
+            # print(ch)
+            # raise NotImplementedError
+            # sic(ch)
+            update(dur=t_ms, char=ch)
+            time.sleep(t_ms / 1000)
+    check_rich_pbar_field()
+
+    def check_rich_backend_colors():
+        txt = 'hello'
+        for c in ['magenta', 'dodger_blue2', 'dark_red']:
+            print(c + s.i(txt, fg=c))
+    # check_rich_backend_colors()
