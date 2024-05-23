@@ -25,10 +25,11 @@ from stefutil.primitive import is_float, float_is_sci
 __all__ = [
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
     'set_pd_style',
-    'MyIceCreamDebugger', 'sic', 'rc', 'cl',
+    'MyIceCreamDebugger', 'sic', 'rc', 'rcl',
     'render_nested_ansi_pairs', 'PrettyStyler', 's',
     'str2ascii_str', 'sanitize_str',
-    'hex2rgb', 'MyTheme', 'MyFormatter', 'CleanAnsiFileHandler', 'AnsiFileMap',
+    'hex2rgb', 'MyTheme', 'MyFormatter',
+    'filter_ansi', 'CleanAnsiFileHandler', 'AnsiFileMap',
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
     'Timer',
     'CheckArg', 'ca',
@@ -149,7 +150,7 @@ class MyIceCreamDebugger(IceCreamDebugger):
 sic = MyIceCreamDebugger()
 
 rc = Console()
-cl = rc.log
+rcl = rc.log
 
 
 def enclose_in_quote(txt: str) -> str:
@@ -841,7 +842,7 @@ _ansi_escape = re.compile(r'''
 ''', re.VERBOSE)
 
 
-def _filter_ansi(txt: str) -> str:
+def filter_ansi(txt: str) -> str:
     """
     Removes ANSI escape sequences from the string
     """
@@ -853,7 +854,7 @@ class CleanAnsiFileHandler(logging.FileHandler):
     Removes ANSI escape sequences from log file as they are not supported by most text editors
     """
     def emit(self, record):
-        record.msg = _filter_ansi(record.msg)
+        record.msg = filter_ansi(record.msg)
         super().emit(record)
 
 
@@ -1710,7 +1711,7 @@ if __name__ == '__main__':
         print(d)
         print(s.i(d))
         print(render_nested_ansi_pairs(s.i(d)))
-    check_nested_style()
+    # check_nested_style()
 
     def check_ansi_reset():
         # txt = s.i('hello', italic=True, fg="y") + 'world'
@@ -1718,3 +1719,9 @@ if __name__ == '__main__':
         print(txt)
         # sic(txt)
     # check_ansi_reset()
+
+    def check_filter_ansi():
+        txt = s.i('hello')
+        print(txt)
+        print(filter_ansi(txt))
+    check_filter_ansi()
