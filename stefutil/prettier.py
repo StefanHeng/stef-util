@@ -175,6 +175,7 @@ def _adjust_indentation(
     idt = indent_str * indent_level
     pref = f'{prefix}\n{idt}'
     sep = f'{sep.strip()}\n{idt}'
+    # sep = f'{sep}{idt}'
     idt = indent_str * (indent_level - 1)
     post = f'\n{idt}{postfix}'
     return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
@@ -336,8 +337,12 @@ class PrettyStyler:
         if any(x is t for t in [None, True, False]):
             ret = d[x]
         else:
-            tp = float if is_float(x=x) else type(x)  # handles the case where `x` is a string representation of a float
+            if is_float(x=x) or (x[-1] == '%' and is_float(x[:-1])):  # handles the case where `x` is a string representation of a float
+                tp = float
+            else:
+                tp = type(x)
             ret = d.get(tp, dict())
+
         return ret.copy()
 
     @staticmethod
@@ -372,7 +377,7 @@ class PrettyStyler:
                     style_args['color'] = style_args.pop('fg', None)
                     style_args['bgcolor'] = style_args.pop('bg', None)
                     style = rich.style.Style(**style_args)
-                    txt = style.render(text=x)
+                    txt = style.render(text=str(x))  # explicitly convert to str for `False` and `None` styling
                 else:  # `click`
                     txt = click.style(text=x, **style_args)
             if as_str:
@@ -456,7 +461,7 @@ class PrettyStyler:
                     kwargs_['bold'] = True
                 kwargs_.update(kwargs)
                 # not needed for base case string styling
-                for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str']:
+                for k in ['pad_float', 'for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str', 'container_sep_no_newline']:
                     kwargs_.pop(k, None)
                 return PrettyStyler.s(x, **kwargs_)
 
@@ -521,12 +526,12 @@ class PrettyStyler:
         lst = [log_elm(e) for e in it]
         if sep is None:
             sep = ',' if for_path else ', '
-        return f'{pref}{sep.join(lst)}{post}'
+        return f'{pref}{sep.join([str(e) for e in lst])}{post}'
 
     @staticmethod
     def _list(
             lst: List, sep: str = None, for_path: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
-            **kwargs
+            container_sep_no_newline: bool = False, **kwargs
     ) -> str:
         args = dict(with_color=True, for_path=False, pref='[', post=']', curr_indent=curr_indent, indent_end=indent_end)
         if sep is None:
@@ -539,7 +544,14 @@ class PrettyStyler:
             indent = curr_indent
             pref, post, sep = args['pref'], args['post'], args['sep']
             out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent_level=indent, indent_str=indent_str)
-            args['pref'], args['post'], args['sep'] = out.prefix, out.postfix, out.sep
+            args['pref'], args['post'] = out.prefix, out.postfix
+            if all(isinstance(e, (list, dict)) for e in lst) and container_sep_no_newline:
+                # by default, indentation will move elements to the next line,
+                #   for containers that may potentially get indented in newlines, it's not necessary to add newline here
+                #       enabling this will save vertical space
+                pass
+            else:
+                args['sep'] = out.sep
         return PrettyStyler._iter(lst, **args)
 
     @staticmethod
@@ -1521,7 +1533,8 @@ if __name__ == '__main__':
         ]
         for d in ds:
             for idt in [1, 2, 'all']:
-                print(f'indent={s.i(idt)}: {s.i(d, indent=idt, value_no_color=True)}')
+                indent_str = '\t'
+                print(f'indent={s.i(idt)}: {s.i(d, indent=idt, value_no_color=True, indent_str=indent_str)}')
     # check_pl_indent()
 
     def check_pl_color():
@@ -1634,9 +1647,9 @@ if __name__ == '__main__':
     def check_style_diff_objects():
         # d = dict(a=1, b=3.0, c=None, d=False, e=True, f='hello')
         # print(s.i(d))
-        d = dict(g='5', h='4.2', i='world')
+        d = dict(g='5', h='4.2', i='world', j='3.7%')
         # print(s.i(d))
-        print(s.i(d, quote_str=True))
+        print(s.i(d, quote_str=True, bold=False))
     # check_style_diff_objects()
 
     def check_rich_pbar():
@@ -1724,4 +1737,19 @@ if __name__ == '__main__':
         txt = s.i('hello')
         print(txt)
         print(filter_ansi(txt))
-    check_filter_ansi()
+    # check_filter_ansi()
+
+    def check_indent_save_sep_space():
+        args = dict()
+        indent_str = '\t'
+        for lst in [
+            [dict(hello=1, a=True), dict(world=2, b=None)],
+            [['hello', 'world'], [42, 7]]
+        ]:
+            for save in [False, True]:
+                args['container_sep_no_newline'] = save
+                for idt in [1, True]:
+                    args['indent'] = idt
+                    args_desc = f'[{s.i(args)}]'
+                    print(f'{args_desc}: {s.i(lst, indent_str=indent_str, **args)}')
+    check_indent_save_sep_space()
