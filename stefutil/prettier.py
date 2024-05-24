@@ -337,7 +337,9 @@ class PrettyStyler:
         if any(x is t for t in [None, True, False]):
             ret = d[x]
         else:
-            if is_float(x=x) or (isinstance(x, str) and x[-1] == '%' and is_float(x[:-1])):  # handles the case where `x` is a string representation of a float
+            if is_float(x=x):  # handles the case where `x` is a string representation of a float
+                tp = float
+            elif isinstance(x, str) and len(x) > 0 and x[-1] == '%' and is_float(x[:-1]):
                 tp = float
             else:
                 tp = type(x)
