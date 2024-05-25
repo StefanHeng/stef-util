@@ -163,8 +163,9 @@ def batched_conc_map(
 
 
 class BatchedFn:
-    def __init__(self, fn: MapFn, pbar=None):
+    def __init__(self, fn: MapFn = None, fn_keyword: str = None, pbar=None):
         self.fn = fn
+        self.fn_keyword = fn_keyword
         self.pbar = pbar
 
     def __call__(self, args: Iterable[T]) -> List[K]:
@@ -173,14 +174,15 @@ class BatchedFn:
         """
         ret = []
         for a in args:
-            ret.append(self.fn(a))
+            # ret.append(self.fn(a))
+            ret.append(self.fn(**{self.fn_keyword: a}) if self.fn_keyword else self.fn(a))
             if self.pbar is not None:
                 self.pbar.update(1)
         return ret
 
 
 def conc_yield(
-        fn: MapFn, args: Iterable[T], with_tqdm: Union[bool, Dict] = False,
+        fn: MapFn, args: Iterable[T], fn_keyword: str = None, with_tqdm: Union[bool, Dict] = False,
         n_worker: int = os.cpu_count()-1,  # since the calling script consumes one process
         mode: str = 'thread', batch_size: Union[int, bool] = None,
         process_chunk_size: int = None, process_chunk_multiplier: int = None
@@ -191,6 +193,7 @@ def conc_yield(
 
     :param fn: A function
     :param args: A list of elements as input to the function
+    :param fn_keyword: If given, the keyword argument to pass to `fn`
     :param with_tqdm: If true, progress bar is shown
         If dict, treated as `tqdm` concurrent kwargs
             note `chunksize` is helpful
@@ -220,7 +223,7 @@ def conc_yield(
     if batch_size:
         batch_size = 32 if isinstance(batch_size, bool) else batch_size
         # pbar doesn't work w/ pickle hence multiprocessing
-        fn = BatchedFn(fn=fn, pbar=pbar if is_thread else None)
+        fn = BatchedFn(fn=fn, fn_keyword=fn_keyword, pbar=pbar if is_thread else None)
         if process_chunk_size is not None:
             chunk = process_chunk_size
         elif process_chunk_multiplier is not None:
@@ -261,8 +264,8 @@ def conc_yield(
             yield res
 
 
-# DEV = True
-DEV = False
+DEV = True
+# DEV = False
 if DEV:
     import time
     import random
@@ -280,7 +283,8 @@ if DEV:
         return task_idx
 
 
-    def _dummy_fn(x: int):
+    def _dummy_fn(xx: int):
+        x = xx
         t = round(random.uniform(0.2, 1), 3)
         logger.info(f'Calling dummy_fn w/ arg {s.i(x)}, will sleep for {s.i(t)}s')
         time.sleep(t)
@@ -355,7 +359,7 @@ if __name__ == '__main__':
         bsz, n_worker = 4, 4
         # args = dict(n_worker=4, mode='process', batch_size=bsz, process_chunk_size=chunk_mult * bsz * n_worker)
         args = dict(n_worker=4, mode='process', batch_size=bsz, process_chunk_multiplier=4)
-        for i in conc_yield(fn=_dummy_fn, args=range(n), with_tqdm=dict(total=n), **args):
+        for i in conc_yield(fn=_dummy_fn, fn_keyword='xx', args=range(n), with_tqdm=dict(total=n), **args):
             i, _ = i
             logger.info(f'Process {s.i(i)} terminated')
     check_conc_process_chunk()

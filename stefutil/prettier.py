@@ -1264,7 +1264,7 @@ class NoPadProgress(Progress):
 
 def rich_progress(
         sequence: Union[Sequence[ProgressType], Iterable[ProgressType]] = None,
-        desc: str = None,
+        desc: Union[bool, str] = None,
         total: int = None,
         bar_width: int = None,
         return_progress: bool = False,
@@ -1754,4 +1754,16 @@ if __name__ == '__main__':
                     args['indent'] = idt
                     args_desc = f'[{s.i(args)}]'
                     print(f'{args_desc}: {s.i(lst, indent_str=indent_str, **args)}')
-    check_indent_save_sep_space()
+    # check_indent_save_sep_space()
+
+    def check_nested_rich_pbar():
+        import time
+        import random
+
+        progress = rich_progress(return_progress=True, desc=True)
+        with progress:
+            for i in progress.track(range(20), description='outer'):
+                for j in progress.track(range(5), description=f'inner {i}'):
+                    t_ms = random.randint(5, 300)
+                    time.sleep(t_ms / 1000)
+    check_nested_rich_pbar()
