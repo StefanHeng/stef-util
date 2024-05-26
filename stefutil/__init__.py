@@ -2,12 +2,11 @@ from .packaging import *
 from .misc import *
 from .os_n_file import *
 from .primitive import *
-from .prettier import *
-from .prettier_dl import *
+from . import prettier
 from .container import *
-from .concurrency import *
+from . import concurrency
 from .functional import *
-from .plot import *
+from . import plot
 from .ml import *
 from .nlp import *
 from .project import *

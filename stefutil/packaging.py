@@ -10,8 +10,6 @@ import os
 import importlib.metadata
 from typing import List
 
-from stefutil.prettier import s, ca
-
 
 __all__ = [
     '_use_plot', '_use_ml', '_use_dl',
@@ -32,6 +30,9 @@ def installed_packages(recompute: bool = False) -> List[str]:
 
 
 def check_util_use(flag_name: str = 'SU_USE_DL', desc: str = 'Deep Learning', expected_packages: List[str] = None) -> bool:
+    from stefutil.prettier.prettier_debug import s
+    from stefutil.prettier.prettier_log import ca
+
     # Whether to use certain utilities, based on the environment variable `SU_USE_<type>`
     flag = os.environ.get(flag_name, 'False')  # by default, don't import advanced packages
     ca.assert_options(display_name=f'`{flag_name}` Flag', val=flag, options=['True', 'False', 'T', 'F'])
