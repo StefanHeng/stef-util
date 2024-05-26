@@ -14,8 +14,8 @@ from stefutil.prettier import enclose_in_quote
 
 __all__ = [
     'MyIceCreamDebugger', 'sic', 'rc', 'rcl',
-    'render_nested_ansi_pairs', 'PrettyStyler', 's',
-    '_ANSI_BACKEND', '_ANSI_REST_ALL'
+    'to_rich_markup',
+    'render_nested_ansi_pairs', 'PrettyStyler', 's', '_DEFAULT_ANSI_BACKEND', '_ANSI_REST_ALL'
 ]
 
 
@@ -66,23 +66,8 @@ def _adjust_indentation(
 
 # support the `colorama` package for terminal ANSI styling as legacy backend
 # by default, use `click.style()` for less & composable code
-# default_ansi_backend = 'click'
-default_ansi_backend = 'rich'
-_ANSI_BACKEND = os.environ.get('SU_ANSI_BACKEND', default_ansi_backend)
-if _ANSI_BACKEND not in ['click', 'rich', 'colorama']:
-    raise ValueError(f'ANSI backend {_ANSI_BACKEND} not recognized')
-
-if _ANSI_BACKEND == 'click':
-    import click
-
-    _ANSI_REST_ALL = '\033[0m'  # taken from `click.termui`
-elif _ANSI_BACKEND == 'rich':
-    import rich.style
-
-    _ANSI_REST_ALL = '\033[0m'
-else:
-    assert _ANSI_BACKEND == 'colorama'  # legacy
-    import colorama
+_DEFAULT_ANSI_BACKEND = os.environ.get('SU_ANSI_BACKEND', 'rich')
+_ANSI_REST_ALL = '\033[0m'  # taken from `click.termui`
 
 
 def render_nested_ansi_pairs(text: str = None):
@@ -135,66 +120,194 @@ def render_nested_ansi_pairs(text: str = None):
     return ''.join(parts)
 
 
+def _rich_markup_enclose_single(x=None, tag: str = None) -> str:
+    return f'[{tag}]{x}[/{tag}]'
+
+
+def to_rich_markup(x=None, fg: str = None, bg: str = None, bold: bool = False, italic: bool = False, underline: bool = False):
+    x = str(x)
+
+    color = []
+    if fg:
+        color.append(fg)
+    if bg:
+        color.append(f'on {bg}')
+    if color:
+        x = _rich_markup_enclose_single(x=x, tag=' '.join(color))
+
+    for style, tag in [(bold, 'bold'), (italic, 'i'), (underline, 'u')]:
+        if style:
+            x = _rich_markup_enclose_single(x=x, tag=tag)
+    return x
+
+
+@dataclass
+class AnsiStyler:
+    def __call__(
+            self, x: str = None, fg: str = None, bg: str = None, bold: bool = False, italic: bool = False, underline: bool = False, **kwargs
+    ) -> str:
+        raise NotImplementedError
+
+
+@dataclass
+class ColoramaStyler(AnsiStyler):
+    import colorama
+
+    reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
+    short_c2c = dict(
+        log='',
+        warn=colorama.Fore.YELLOW,
+        error=colorama.Fore.RED,
+        err=colorama.Fore.RED,
+        success=colorama.Fore.GREEN,
+        suc=colorama.Fore.GREEN,
+        info=colorama.Fore.BLUE,
+        i=colorama.Fore.BLUE,
+        w=colorama.Fore.RED,
+
+        y=colorama.Fore.YELLOW,
+        yellow=colorama.Fore.YELLOW,
+        red=colorama.Fore.RED,
+        r=colorama.Fore.RED,
+        green=colorama.Fore.GREEN,
+        g=colorama.Fore.GREEN,
+        blue=colorama.Fore.BLUE,
+        b=colorama.Fore.BLUE,
+
+        m=colorama.Fore.MAGENTA
+    )
+
+    def __call__(
+            self, x: str = None, fg: str = None, bg: str = None, bold: bool = False, italic: bool = False, underline: bool = False, **kwargs
+    ) -> str:
+        import colorama
+
+        if bg or italic or underline or kwargs != dict():
+            raise NotImplementedError('Additional styling arguments not supported')
+
+        need_reset = False
+        if fg in self.short_c2c:
+            fg = self.short_c2c[fg]
+            need_reset = True
+        if bold:
+            fg += colorama.Style.BRIGHT
+            need_reset = True
+        reset = self.reset if need_reset else ''
+        return f'{fg}{x}{reset}'
+
+
+@dataclass
+class ClickNRichStyler(AnsiStyler):
+    backend: str = None
+
+    # `click.style()` already handles various colors, here stores the mapping from my representation
+    # start with my shortcut mapping
+    short_c2c = dict(
+        bl='black',
+        r='red',
+        g='green',
+        y='yellow',
+        b='blue',
+        m='magenta',
+        c='cyan',
+        w='white',
+    )
+    # also add the bright versions, mapping to names used by `click.style()`
+    short_c2c.update({f'B{c}': f'bright_{c_}' for c, c_ in short_c2c.items()})
+    short_c2c.update(  # now set default colors for each logging type
+        log='green',
+        warn='yellow',
+        error='red',
+        success='green',
+        info='blue',
+        i='blue',
+    )
+    
+    def get_color(self, color: str = None):
+        return None if color == 'none' else self.short_c2c.get(color, color)
+
+    def __call__(
+            self, x: str = None, fg: str = None, bg: str = None, bold: bool = False, italic: bool = False, underline: bool = False, **kwargs
+    ) -> str:
+        fg, bg = self.get_color(color=fg), self.get_color(color=bg)
+
+        # add the default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
+        if not fg and not bg and not bold and not italic and not underline and kwargs == dict():
+            return x
+
+        else:
+            style_args = dict(fg=fg, bg=bg, bold=bold, italic=italic, underline=underline, **kwargs)
+            if self.backend == 'rich':  # `rich` uses `color` and `bgcolor` instead of `fg` and `bg`
+                import rich.style
+                style_args['color'] = style_args.pop('fg')
+                style_args['bgcolor'] = style_args.pop('bg')
+                style = rich.style.Style(**style_args)
+                return style.render(text=str(x))  # explicitly convert to str for `False` and `None` styling
+
+            elif self.backend == 'rich-markup':
+                if kwargs != dict():
+                    raise NotImplementedError('Additional styling arguments not supported')
+                # now rich rendering may apply additional styling,
+                #   e.g., bold-facing container enclosing prefix & postfix (e.g. `{` and `}`)
+                return to_rich_markup(x, **style_args)
+
+            else:  # `click`
+                import click
+                assert self.backend == 'click'
+                return click.style(text=x, **style_args)
+
+
 class PrettyStyler:
     """
     My logging w/ color & formatting, and a lot of syntactic sugar
     """
-    if _ANSI_BACKEND in ['click', 'rich']:  # `click.style()` already handles various colors, here stores the mapping from my rep
-        # start with my shortcut mapping
-        short_c2c = dict(
-            bl='black',
-            r='red',
-            g='green',
-            y='yellow',
-            b='blue',
-            m='magenta',
-            c='cyan',
-            w='white',
-        )
-        # also add the bright versions, mapping to names used by `click.style()`
-        short_c2c.update({f'B{c}': f'bright_{c_}' for c, c_ in short_c2c.items()})
-        short_c2c.update(  # now set default colors for each logging type
-            log='green',
-            warn='yellow',
-            error='red',
-            success='green',
-            info='blue',
-            i='blue',
-        )
+    var_type2style = {
+        None: dict(fg='Bm', italic=True),
+        True: dict(fg='Bg', italic=True),
+        False: dict(fg='Br', italic=True),
+        int: dict(fg='Bc'),
+        float: dict(fg='Bc'),
+        str: dict(fg='Bg')
+    }
 
-        var_type2style = {
-            None: dict(fg='Bm', italic=True),
-            True: dict(fg='Bg', italic=True),
-            False: dict(fg='Br', italic=True),
-            int: dict(fg='Bc'),
-            float: dict(fg='Bc'),
-            str: dict(fg='Bg'),
-        }
-    else:
-        assert _ANSI_BACKEND == 'colorama'
-        reset = colorama.Fore.RESET + colorama.Back.RESET + colorama.Style.RESET_ALL
-        short_c2c = dict(
-            log='',
-            warn=colorama.Fore.YELLOW,
-            error=colorama.Fore.RED,
-            err=colorama.Fore.RED,
-            success=colorama.Fore.GREEN,
-            suc=colorama.Fore.GREEN,
-            info=colorama.Fore.BLUE,
-            i=colorama.Fore.BLUE,
-            w=colorama.Fore.RED,
+    # backend2styler = {
+    #     'colorama': ColoramaStyler(),
+    #     'click': ClickNRichStyler(backend='click'),
+    #     'rich': ClickNRichStyler(backend='rich'),
+    #     'rich-markup': RichMarkupStyler()
+    # }
+    backend2styler_attr = {
+        'colorama': 'colorama_styler',  # legacy
+        'click': 'click_styler',
+        'rich': 'rich_styler',
+        'rich-markup': 'rich_markup_styler'
+    }
 
-            y=colorama.Fore.YELLOW,
-            yellow=colorama.Fore.YELLOW,
-            red=colorama.Fore.RED,
-            r=colorama.Fore.RED,
-            green=colorama.Fore.GREEN,
-            g=colorama.Fore.GREEN,
-            blue=colorama.Fore.BLUE,
-            b=colorama.Fore.BLUE,
-
-            m=colorama.Fore.MAGENTA
-        )
+    # lazy loading for optional backend packages
+    @staticmethod
+    def colorama_styler():
+        if not hasattr(PrettyStyler, '_colorama_styler'):
+            PrettyStyler._colorama_styler = ColoramaStyler()
+        return PrettyStyler._colorama_styler
+    
+    @staticmethod
+    def click_styler():
+        if not hasattr(PrettyStyler, '_click_styler'):
+            PrettyStyler._click_styler = ClickNRichStyler(backend='click')
+        return PrettyStyler._click_styler
+    
+    @staticmethod
+    def rich_styler():
+        if not hasattr(PrettyStyler, '_rich_styler'):
+            PrettyStyler._rich_styler = ClickNRichStyler(backend='rich')
+        return PrettyStyler._rich_styler
+    
+    @staticmethod
+    def rich_markup_styler():
+        if not hasattr(PrettyStyler, '_rich_markup_styler'):
+            # PrettyStyler._rich_markup_styler = RichMarkupStyler()
+            PrettyStyler._rich_markup_styler = ClickNRichStyler(backend='rich-markup')
+        return PrettyStyler._rich_markup_styler
 
     @staticmethod
     def style(
@@ -231,50 +344,16 @@ class PrettyStyler:
     @staticmethod
     def _style(
             x: Union[int, float, bool, str, None] = None, fg: str = None, bg: str = None, bold: bool = False,
-            pad: Union[int, str] = None, quote_str: bool = False, **style_kwargs
+            pad: Union[int, str] = None, quote_str: bool = False, backend: str = _DEFAULT_ANSI_BACKEND, **style_kwargs
     ) -> str:
         if isinstance(x, str) and not is_float(x) and quote_str:
             x = enclose_in_quote(x)
+        x = f'{x:>{pad}}' if pad else x
 
-        if _ANSI_BACKEND in ['click', 'rich']:
-            if fg:
-                if fg == 'none':
-                    fg = None
-                else:
-                    fg = PrettyStyler.short_c2c.get(fg, fg)
-            if bg:
-                if bg == 'none':
-                    bg = None
-                else:
-                    bg = PrettyStyler.short_c2c.get(bg, bg)
-            # add the default case when no styling is specified s.t. ANSI reset doesn't contaminate string vars
-            if not fg and not bg and not bold and style_kwargs == dict():
-                return x
-            else:
-                x = f'{x:>{pad}}' if pad else x
-
-                style_args = dict(fg=fg, bg=bg, bold=bold, **style_kwargs)
-                if _ANSI_BACKEND == 'rich':  # `rich` uses `color` and `bgcolor` instead of `fg` and `bg`
-                    style_args['color'] = style_args.pop('fg', None)
-                    style_args['bgcolor'] = style_args.pop('bg', None)
-                    style = rich.style.Style(**style_args)
-                    return style.render(text=str(x))  # explicitly convert to str for `False` and `None` styling
-                else:  # `click`
-                    return click.style(text=x, **style_args)
-
-        else:
-            if style_kwargs:
-                raise NotImplementedError('Additional styling arguments expected for backend `click` only')
-
-            need_reset = False
-            if fg in PrettyStyler.short_c2c:
-                fg = PrettyStyler.short_c2c[fg]
-                need_reset = True
-            if bold:
-                fg += colorama.Style.BRIGHT
-                need_reset = True
-            reset = PrettyStyler.reset if need_reset else ''
-            return f'{fg}{x:>{pad}}{reset}' if pad else f'{fg}{x}{reset}'
+        if _DEFAULT_ANSI_BACKEND not in ['click', 'rich', 'colorama', 'rich-markup']:
+            raise ValueError(f'ANSI backend {_DEFAULT_ANSI_BACKEND} not recognized')
+        styler = getattr(PrettyStyler, PrettyStyler.backend2styler_attr[backend])()
+        return styler(x=x, fg=fg, bg=bg, bold=bold, **style_kwargs)
 
     @staticmethod
     def s(text, fg: str = None, bold: bool = False, with_color: bool = True, **style_kwargs) -> str:
@@ -286,7 +365,7 @@ class PrettyStyler:
         return PrettyStyler.style(text, fg=fg, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, render_nested_style: bool = False, **kwargs):
+    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, backend: str = _DEFAULT_ANSI_BACKEND, render_nested_style: bool = False, **kwargs):
         """
         syntactic sugar for logging `info` as string
 
@@ -296,9 +375,11 @@ class PrettyStyler:
         :param indent_str: string for one level of indentation.
         :param render_nested_style: whether to render nested ANSI styles at the end.
             intended when the input passed in already contains local ANSI styles, see `render_nested_ansi_pairs`.
+        :param backend: backend package for ANSI styling
         """
         if render_nested_style:  # as a syntactic sugar; make a recursive call w/ all other params
-            ret = PrettyStyler.i(x, indent=indent, indent_str=indent_str, **kwargs)
+            assert backend != 'rich-markup'  # sanity check, this is not the intended use case
+            ret = PrettyStyler.i(x, indent=indent, indent_str=indent_str, backend=backend, **kwargs)
             return render_nested_ansi_pairs(ret)
 
         else:
@@ -314,6 +395,7 @@ class PrettyStyler:
                     assert isinstance(indent, int) and indent > 0  # sanity check
                 kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
                 kwargs['indent_str'] = indent_str
+            kwargs['backend'] = backend
 
             # otherwise, already a nested internal call
             if isinstance(x, dict):
@@ -331,11 +413,14 @@ class PrettyStyler:
             else:  # base case
                 # kwargs_ = dict(fg='b')
                 kwargs_ = dict()
-                if _ANSI_BACKEND != 'colorama':  # doesn't support `bold`
+                if _DEFAULT_ANSI_BACKEND != 'colorama':  # doesn't support `bold`
                     kwargs_['bold'] = True
                 kwargs_.update(kwargs)
                 # not needed for base case string styling
-                for k in ['for_path', 'value_no_color', 'curr_indent', 'indent_end', 'indent_str', 'container_sep_no_newline']:
+                for k in [
+                    'curr_indent', 'indent_end', 'indent_str',
+                    'for_path', 'value_no_color', 'brace_no_color', 'container_sep_no_newline'
+                ]:
                     kwargs_.pop(k, None)
                 # get pad value, either from `pad_float` or `pad`
                 pad = kwargs_.pop('pad_float', None) or kwargs_.pop('pad', None)
@@ -384,11 +469,11 @@ class PrettyStyler:
     @staticmethod
     def _iter(
             it: Iterable, with_color=True, pref: str = '[', post: str = ']', sep: str = None, for_path: bool = False,
-            curr_indent: int = None, indent_end: int = None, **kwargs
+            curr_indent: int = None, indent_end: int = None, brace_no_color: bool = False, backend: str = _DEFAULT_ANSI_BACKEND, **kwargs
     ):
         # `kwargs` so that customization for other types can be ignored w/o error
-        if with_color:
-            pref, post = PrettyStyler.s(pref, fg='m'), PrettyStyler.s(post, fg='m')
+        if with_color and not brace_no_color:
+            pref, post = PrettyStyler.s(pref, fg='m', backend=backend), PrettyStyler.s(post, fg='m', backend=backend)
 
         def log_elm(e):
             curr_idt = None
@@ -396,10 +481,11 @@ class PrettyStyler:
                 assert indent_end is not None  # sanity check
                 if curr_indent < indent_end:
                     curr_idt = curr_indent + 1
+            args = dict(with_color=with_color, for_path=for_path, backend=backend, brace_no_color=brace_no_color)
             if isinstance(e, (list, dict)):
-                return PrettyStyler.i(e, with_color=with_color, curr_indent=curr_idt, indent_end=indent_end, for_path=for_path, **kwargs)
+                return PrettyStyler.i(e, curr_indent=curr_idt, indent_end=indent_end, **args, **kwargs)
             else:
-                return PrettyStyler.i(e, with_color=with_color, for_path=for_path, **kwargs)
+                return PrettyStyler.i(e, **args, **kwargs)
         lst = [log_elm(e) for e in it]
         if sep is None:
             sep = ',' if for_path else ', '
@@ -444,8 +530,8 @@ class PrettyStyler:
             key_value_sep: str = ': ', pairs_sep: str = ', ',  # dict specific args
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
             omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
-            value_no_color: bool = False, align_keys: Union[bool, int] = False,
-            **kwargs
+            brace_no_color: bool = False, value_no_color: bool = False, align_keys: Union[bool, int] = False,
+            backend: str = _DEFAULT_ANSI_BACKEND, **kwargs
     ) -> str:
         """
         Syntactic sugar for logging dict with coloring for console output
@@ -474,10 +560,12 @@ class PrettyStyler:
                 return PrettyStyler.i(
                     v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
-                    curr_indent=curr_idt, indent_end=indent_end, **kwargs
+                    curr_indent=curr_idt, indent_end=indent_end, backend=backend,
+                    brace_no_color=brace_no_color, value_no_color=value_no_color, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
-                return PrettyStyler.i(v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, **kwargs)
+                return PrettyStyler.i(
+                    v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, backend=backend, brace_no_color=brace_no_color, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -494,20 +582,20 @@ class PrettyStyler:
                 #         return PrettyLogger.i(v) if with_color else v
                 else:
                     # return PrettyLogger.i(v) if with_color else v
-                    return PrettyStyler.i(v, with_color=c, pad_float=pad_float, **kwargs)
+                    return PrettyStyler.i(v, with_color=c, pad_float=pad_float, backend=backend, **kwargs)
         d = d or kwargs or dict()
         if for_path:
             assert not with_color  # sanity check
             key_value_sep = '='
         if with_color:
-            key_value_sep = PrettyStyler.s(key_value_sep, fg='m')
+            key_value_sep = PrettyStyler.s(key_value_sep, fg='m', backend=backend)
 
         pairs = []
         for k, v_ in d.items():
             if align == 'curr' and max_c is not None:
                 k = f'{k:<{max_c}}'
             # no coloring, but still try to make it more compact, e.g. string tuple processing
-            k = PrettyStyler.i(k, with_color=False, for_path=for_path)
+            k = PrettyStyler.i(k, with_color=False, for_path=for_path, backend=backend)
             if omit_none_val and v_ is None:
                 pairs.append(k)
             else:
@@ -517,8 +605,8 @@ class PrettyStyler:
             indent = curr_indent
             out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent_level=indent, indent_str=indent_str)
             pref, post, pairs_sep_ = out.prefix, out.postfix, out.sep
-        if with_color:
-            pref, post = PrettyStyler.s(pref, fg='m'), PrettyStyler.s(post, fg='m')
+        if with_color and not brace_no_color:
+            pref, post = PrettyStyler.s(pref, fg='m', backend=backend), PrettyStyler.s(post, fg='m', backend=backend)
         return pref + pairs_sep_.join(pairs) + post
 
 
@@ -749,4 +837,33 @@ if __name__ == '__main__':
         print(f'{mm:{d}}')
         rate = 1.23456789
         print(s.i(rate, fg='c', pad='5.2f'))
-    check_pad_float()
+    # check_pad_float()
+
+    def check_rich_markup():
+        from rich import print as rich_print
+
+        styles = [
+            dict(fg='red'), dict(bg='bright_blue'), dict(fg='black', bg='white'),
+            dict(bold=True), dict(italic=True, underline=True), dict(fg='cyan', underline=True)
+        ]
+        for style in styles:
+            txt = 'hello world'
+            # print(s.i(txt, **style, backend='rich-markup'))
+            rich_print(to_rich_markup(txt, **style))
+
+            fg = style.pop('fg', 'none')
+            bold = style.pop('bold', False)
+            rich_print(s.i(txt, backend='rich-markup', fg=fg, bold=bold, **style))
+
+        # txt = 'hello world'
+        # print(s.i(txt, bold=True, backend='rich-markup'))
+        d = dict(hello=1, world=4.2, txt='hey', d=dict(a=1, b=2))
+        lst = [1, 4.2, 'hello', ['a', 'b'], dict(a=1, b=2)]
+
+        def print_single(x):
+            rich_print('rich markup backend:', s.i(x, backend='rich-markup', brace_no_color=True))
+            print('default rich backend:', s.i(lst, brace_no_color=True))
+            # sic(s.i(x, backend='rich-markup', brace_no_color=True))
+        print_single(d)
+        print_single(lst)
+    check_rich_markup()

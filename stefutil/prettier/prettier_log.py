@@ -7,7 +7,7 @@ from typing import List, Dict, Union, Optional, Any, Callable
 from collections import OrderedDict
 
 from stefutil.prettier.prettier import hex2rgb
-from stefutil.prettier.prettier_debug import s, _ANSI_BACKEND, _ANSI_REST_ALL
+from stefutil.prettier.prettier_debug import s, _DEFAULT_ANSI_BACKEND, _ANSI_REST_ALL
 
 
 __all__ = [
@@ -114,7 +114,7 @@ class MyFormatter(logging.Formatter):
 
     Default styling: Time in green, metadata indicates severity, plain log message
     """
-    if _ANSI_BACKEND in ['click', 'rich']:
+    if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
         # styling for each level and for time prefix
         # time = dict(fg='g')
         # time = dict(fg='Bg', italic=True)
@@ -132,7 +132,7 @@ class MyFormatter(logging.Formatter):
         error = dict(fg='r', bold=False, italic=True)
         critical = dict(fg='m', bold=False, italic=True)
     else:
-        assert _ANSI_BACKEND == 'colorama'
+        assert _DEFAULT_ANSI_BACKEND == 'colorama'
         import sty
 
         RESET = sty.rs.fg + sty.rs.bg + sty.rs.ef
@@ -168,7 +168,7 @@ class MyFormatter(logging.Formatter):
         super().__init__()
         self.with_color = with_color
 
-        if _ANSI_BACKEND in ['click', 'rich']:
+        if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
             self.time_style_args = MyFormatter.time.copy()
             self.time_style_args.update(style_time or dict())
             self.sep_style_args = MyFormatter.sep.copy()
@@ -178,7 +178,7 @@ class MyFormatter(logging.Formatter):
 
             color_time = s.s(MyFormatter.KW_TIME, **self.time_style_args) + s.s('|', **self.sep_style_args)
         else:
-            assert _ANSI_BACKEND == 'colorama'
+            assert _DEFAULT_ANSI_BACKEND == 'colorama'
             if style_time:
                 raise NotImplementedError('Styling for time not supported for `colorama` backend')
             reset = MyFormatter.RESET
@@ -187,10 +187,10 @@ class MyFormatter(logging.Formatter):
 
         def args2fmt(args_):
             if self.with_color:
-                if _ANSI_BACKEND in ['click', 'rich']:
+                if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
                     return color_time + self.fmt_meta(*args_) + s.s(': ', **self.sep_style_args) + MyFormatter.KW_MSG + _ANSI_REST_ALL
                 else:
-                    assert _ANSI_BACKEND == 'colorama'
+                    assert _DEFAULT_ANSI_BACKEND == 'colorama'
                     return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
             else:
                 return f'{MyFormatter.KW_TIME}|{self.fmt_meta(*args_)}:{MyFormatter.KW_MSG}'
@@ -202,14 +202,14 @@ class MyFormatter(logging.Formatter):
 
     def fmt_meta(self, meta_abv, meta_style: Union[str, Dict[str, Any]] = None):
         if self.with_color:
-            if _ANSI_BACKEND in ['click', 'rich']:
+            if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
                 return '[' + s.s(MyFormatter.KW_NAME, **self.ref_style_args) + ']' \
                     + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, **self.ref_style_args) \
                     + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, **self.ref_style_args) \
                     + s.s(':', **self.sep_style_args) + s.s(MyFormatter.KW_LINENO, **self.ref_style_args) \
                     + s.s(':', **self.sep_style_args) + s.s(meta_abv, **meta_style)
             else:
-                assert _ANSI_BACKEND == 'colorama'
+                assert _DEFAULT_ANSI_BACKEND == 'colorama'
                 return (f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]'
                         f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FUNC_NM}'
                         f'{MyFormatter.blue}::{MyFormatter.purple}{MyFormatter.KW_FNM}'
