@@ -8,7 +8,7 @@ from os.path import join as os_join
 from typing import List, Dict, Union
 
 from stefutil.container import get
-from stefutil.os_n_file import rel_path
+from stefutil.os import rel_path
 from stefutil.prettier import now, ca, get_logger, s
 
 
