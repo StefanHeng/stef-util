@@ -365,7 +365,7 @@ class PrettyStyler:
         return PrettyStyler.style(text, fg=fg, bold=bold, **style_kwargs)
 
     @staticmethod
-    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = ' ' * 4, backend: str = _DEFAULT_ANSI_BACKEND, render_nested_style: bool = False, **kwargs):
+    def i(x, indent: Union[int, float, bool, str, None] = None, indent_str: str = '\t', backend: str = _DEFAULT_ANSI_BACKEND, render_nested_style: bool = False, **kwargs):
         """
         syntactic sugar for logging `info` as string
 
@@ -419,12 +419,16 @@ class PrettyStyler:
                 # not needed for base case string styling
                 for k in [
                     'curr_indent', 'indent_end', 'indent_str',
-                    'for_path', 'value_no_color', 'brace_no_color', 'container_sep_no_newline'
+                    'for_path', 'brace_no_color', 'value_no_color', 'color_keys', 'container_sep_no_newline'
                 ]:
                     kwargs_.pop(k, None)
                 # get pad value, either from `pad_float` or `pad`
                 pad = kwargs_.pop('pad_float', None) or kwargs_.pop('pad', None)
                 return PrettyStyler.s(x, pad=pad, **kwargs_)
+
+    @staticmethod
+    def nb(x, **kwargs):  # syntax sugar for `i` w/o bold
+        return PrettyStyler.i(x, bold=False, **kwargs)
 
     @staticmethod
     def _num(n: Union[float, int], pad: Union[int, str] = None) -> Union[str, int, float]:
@@ -530,7 +534,7 @@ class PrettyStyler:
             key_value_sep: str = ': ', pairs_sep: str = ', ',  # dict specific args
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
             omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
-            brace_no_color: bool = False, value_no_color: bool = False, align_keys: Union[bool, int] = False,
+            brace_no_color: bool = False, color_keys: bool = False, value_no_color: bool = False, align_keys: Union[bool, int] = False,
             backend: str = _DEFAULT_ANSI_BACKEND, **kwargs
     ) -> str:
         """
@@ -561,11 +565,12 @@ class PrettyStyler:
                     v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
                     curr_indent=curr_idt, indent_end=indent_end, backend=backend,
-                    brace_no_color=brace_no_color, value_no_color=value_no_color, **kwargs
+                    brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
                 return PrettyStyler.i(
-                    v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, backend=backend, brace_no_color=brace_no_color, **kwargs)
+                    v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, backend=backend,
+                    brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -594,8 +599,8 @@ class PrettyStyler:
         for k, v_ in d.items():
             if align == 'curr' and max_c is not None:
                 k = f'{k:<{max_c}}'
-            # no coloring, but still try to make it more compact, e.g. string tuple processing
-            k = PrettyStyler.i(k, with_color=False, for_path=for_path, backend=backend)
+            # no coloring by default, but still try to make it more compact, e.g., string tuple processing
+            k = PrettyStyler.i(k, with_color=color_keys, for_path=for_path, backend=backend, brace_no_color=brace_no_color, **kwargs)
             if omit_none_val and v_ is None:
                 pairs.append(k)
             else:
@@ -866,4 +871,11 @@ if __name__ == '__main__':
             # sic(s.i(x, backend='rich-markup', brace_no_color=True))
         print_single(d)
         print_single(lst)
-    check_rich_markup()
+    # check_rich_markup()
+
+    def check_i_customization():
+        d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'but']))
+        print(s.nb(d, indent=2))
+        d = {'a': 1, 42: (1, 2), 'c': 'hello'}
+        print(s.i(d, color_keys=True, value_no_color=True))
+    check_i_customization()
