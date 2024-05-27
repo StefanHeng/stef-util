@@ -29,18 +29,24 @@ class MlPrettier:
 
     def __init__(
             self, ref: Dict[str, Any] = None, metric_keys: List[str] = None, no_prefix: Iterable[str] = no_prefix,
-            with_color: bool = False
+            with_color: bool = False, digit: int = 2
     ):
         """
         :param ref: Reference that are potentially needed
             i.e. for logging epoch/step, need the total #
         :param metric_keys: keys that are considered metric
             Will be logged in [0, 100]
+        :param no_prefix: Keys that should not have split prefixes
+        :param with_color: Whether to colorize the output
+        :param digit: Number of digits to keep for metrics
         """
         self.ref = ref
         self.metric_keys = metric_keys or ['acc', 'precision', 'recall', 'f1', 'auc']
         self.no_prefix = no_prefix
         self.with_color = with_color
+
+        assert digit >= 0  # sanity check
+        self.digit = digit
 
     def __call__(self, d: Union[str, Dict], val=None) -> Union[Any, Dict[str, Any]]:
         """
@@ -77,8 +83,10 @@ class MlPrettier:
         elif 'loss' in key:
             return f'{round(val, 4):7.4f}'
         elif any(k in key for k in self.metric_keys):  # custom in-key-ratio metric
+            d_b, d_a = 4 + self.digit, self.digit
+
             def _single(v):
-                return f'{round(v * 100, 2):6.2f}' if v is not None else '-'
+                return f'{round(v * 100, 2):{d_b}.{d_a}f}' if v is not None else '-'
 
             if isinstance(val, list):
                 return [_single(v) for v in val]
@@ -312,4 +320,10 @@ if __name__ == '__main__':
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))
         sic(mp.single(key='global_step', val=4))
         sic(mp.single(key='step', val=2))
-    check_prettier()
+    # check_prettier()
+
+    def check_prettier_digit():
+        mp = MlPrettier(digit=1)
+        d_log = dict(f1=0.4212345)
+        sic(d_log, mp(d_log))
+    check_prettier_digit()

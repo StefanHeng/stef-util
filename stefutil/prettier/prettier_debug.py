@@ -3,6 +3,7 @@ import re
 import json
 import pprint
 from typing import Tuple, List, Dict, Iterable, Union, Any
+from pathlib import Path
 from dataclasses import dataclass
 
 from icecream import IceCreamDebugger
@@ -13,9 +14,11 @@ from stefutil.prettier import enclose_in_quote
 
 
 __all__ = [
-    'MyIceCreamDebugger', 'sic', 'rc', 'rcl',
+    'MyIceCreamDebugger', 'sic',
+    'rc', 'rcl',
+    '_DEFAULT_ANSI_BACKEND', '_ANSI_REST_ALL',
     'to_rich_markup',
-    'render_nested_ansi_pairs', 'PrettyStyler', 's', '_DEFAULT_ANSI_BACKEND', '_ANSI_REST_ALL'
+    'render_nested_ansi_pairs', 'PrettyStyler', 's', 'style',
 ]
 
 
@@ -267,15 +270,10 @@ class PrettyStyler:
         False: dict(fg='Br', italic=True),
         int: dict(fg='Bc'),
         float: dict(fg='Bc'),
-        str: dict(fg='Bg')
+        str: dict(fg='Bg'),
+        'path': dict(fg='m')
     }
 
-    # backend2styler = {
-    #     'colorama': ColoramaStyler(),
-    #     'click': ClickNRichStyler(backend='click'),
-    #     'rich': ClickNRichStyler(backend='rich'),
-    #     'rich-markup': RichMarkupStyler()
-    # }
     backend2styler_attr = {
         'colorama': 'colorama_styler',  # legacy
         'click': 'click_styler',
@@ -335,6 +333,9 @@ class PrettyStyler:
                 tp = float
             elif isinstance(x, str) and len(x) > 0 and x[-1] == '%' and is_float(x[:-1]):
                 tp = float
+            elif isinstance(x, Path) \
+                    or (isinstance(x, str) and (os.path.exists(x) or len(x) < 256 and x.count(os.sep) >= 2)):  # heuristics to check for path
+                tp = 'path'
             else:
                 tp = type(x)
             ret = d.get(tp, dict())
@@ -615,7 +616,7 @@ class PrettyStyler:
         return pref + pairs_sep_.join(pairs) + post
 
 
-s = PrettyStyler()
+s = style = PrettyStyler()
 
 
 if __name__ == '__main__':
@@ -878,4 +879,12 @@ if __name__ == '__main__':
         print(s.nb(d, indent=2))
         d = {'a': 1, 42: (1, 2), 'c': 'hello'}
         print(s.i(d, color_keys=True, value_no_color=True))
-    check_i_customization()
+    # check_i_customization()
+
+    def check_style_path():
+        path = '/home/stefan/Downloads'
+        print(s.i(path))
+        path = Path('/home/stefan/Downloads')
+        print(s.i(path))
+    check_style_path()
+
