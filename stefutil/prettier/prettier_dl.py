@@ -48,7 +48,7 @@ class MlPrettier:
         assert digit >= 0  # sanity check
         self.digit = digit
 
-    def __call__(self, d: Union[str, Dict], val=None) -> Union[Any, Dict[str, Any]]:
+    def __call__(self, d: Union[str, Dict], val=None, digit: int = None) -> Union[Any, Dict[str, Any]]:
         """
         :param d: If str, prettify a single value
             Otherwise, prettify a dict
@@ -58,11 +58,11 @@ class MlPrettier:
             raise ValueError('Either a key-value pair or a mapping is expected')
         if is_dict:
             d: Dict
-            return {k: self.single(k, v) for k, v in d.items()}
+            return {k: self.single(key=k, val=v, digit=digit) for k, v in d.items()}
         else:
-            return self.single(d, val)
+            return self.single(key=d, val=val)
 
-    def single(self, key: str = None, val: Any = None) -> Union[str, List[str], Dict[str, Any]]:
+    def single(self, key: str = None, val: Any = None, digit: int = None) -> Union[str, List[str], Dict[str, Any]]:
         """
         `val` processing is infered based on key
         """
@@ -83,7 +83,8 @@ class MlPrettier:
         elif 'loss' in key:
             return f'{round(val, 4):7.4f}'
         elif any(k in key for k in self.metric_keys):  # custom in-key-ratio metric
-            d_b, d_a = 4 + self.digit, self.digit
+            digit = digit if digit is not None else self.digit
+            d_b, d_a = 4 + digit, digit
 
             def _single(v):
                 return f'{round(v * 100, 2):{d_b}.{d_a}f}' if v is not None else '-'
@@ -325,5 +326,5 @@ if __name__ == '__main__':
     def check_prettier_digit():
         mp = MlPrettier(digit=1)
         d_log = dict(f1=0.4212345)
-        sic(d_log, mp(d_log))
+        sic(d_log, mp(d_log), mp(d_log, digit=3))
     check_prettier_digit()
