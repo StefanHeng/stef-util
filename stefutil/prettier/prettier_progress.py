@@ -7,10 +7,17 @@ from tqdm.auto import tqdm
 from tqdm.std import TqdmWarning
 from tqdm.utils import FormatReplace, disp_len, disp_trim
 
-from stefutil.prettier.prettier_debug import s
+from stefutil.prettier.prettier_debug import s, rc
 
 
-__all__ = ['rich_progress', 'tqdc']
+__all__ = [
+    'rich_status', 'rich_progress',
+    'tqdc'
+]
+
+
+def rich_status(desc: str = None, spinner: str = 'arrow3'):
+    return rc.status(status=desc, spinner=spinner)
 
 
 class SpeedTaskProgressColumn(TaskProgressColumn):

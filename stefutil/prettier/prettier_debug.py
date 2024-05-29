@@ -419,7 +419,7 @@ class PrettyStyler:
                 kwargs_.update(kwargs)
                 # not needed for base case string styling
                 for k in [
-                    'curr_indent', 'indent_end', 'indent_str',
+                    'curr_indent', 'indent_end', 'indent_str', 'align_keys',
                     'for_path', 'brace_no_color', 'value_no_color', 'color_keys', 'container_sep_no_newline'
                 ]:
                     kwargs_.pop(k, None)
@@ -731,7 +731,23 @@ if __name__ == '__main__':
         print(s.i(d, indent=2))
         print(s.i(d, align_keys=True))
         print(s.i(d, indent=2, align_keys=True))
-    # check_align_d()
+
+        d = {
+            '#': {
+                'Chemical': {
+                    '__correct__': 132, '__not_named_entity__': 5, '__wrong_boundary__': 9, '__wrong_type__': 43, 'incorrect': 57},
+                'total': {
+                    '__correct__': 132, '__not_named_entity__': 5, '__wrong_boundary__': 9, '__wrong_type__': 43, 'incorrect': 57}
+            },
+            '%': {
+                'Chemical': {
+                    '__correct__': '69.8%', '__not_named_entity__': '2.6%', '__wrong_boundary__': '4.8%', '__wrong_type__': '22.8%', 'incorrect': '30.2%'},
+                'total': {
+                    '__correct__': '69.8%', '__not_named_entity__': '2.6%', '__wrong_boundary__': '4.8%', '__wrong_type__': '22.8%', 'incorrect': '30.2%'}
+            }
+        }
+        print(s.i(d, align_keys=2, indent=2, pad=5))
+    check_align_d()
 
     def check_align_edge():
         d1 = dict(a=1, bb=2, ccc=dict(d=3, ee=4, fff=['as', 'as']))
@@ -886,5 +902,5 @@ if __name__ == '__main__':
         print(s.i(path))
         path = Path('/home/stefan/Downloads')
         print(s.i(path))
-    check_style_path()
+    # check_style_path()
 
