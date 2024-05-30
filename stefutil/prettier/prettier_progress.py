@@ -1,4 +1,7 @@
+import typing
+from types import TracebackType
 from typing import Tuple, List, Iterable, Union, Optional, Callable, Sequence
+from typing import BinaryIO, ContextManager, Generic, TextIO, Type, Literal
 from datetime import datetime, timedelta, timezone
 from warnings import warn
 
@@ -11,13 +14,53 @@ from stefutil.prettier.prettier_debug import s, rc
 
 
 __all__ = [
-    'rich_status', 'rich_progress',
+    'rich_status', 'rich_open', 'rich_progress',
     'tqdc'
 ]
 
 
 def rich_status(desc: str = None, spinner: str = 'arrow3'):
     return rc.status(status=desc, spinner=spinner)
+
+
+_I = typing.TypeVar("_I", TextIO, BinaryIO)
+
+# copied over from `rich.progress` for no public access
+class _ReadContext(ContextManager[_I], Generic[_I]):
+    """A utility class to handle a context for both a reader and a progress."""
+
+    def __init__(self, progress: "Progress", reader: _I) -> None:
+        self.progress = progress
+        self.reader: _I = reader
+
+    def __enter__(self) -> _I:
+        self.progress.start()
+        return self.reader.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.progress.stop()
+        self.reader.__exit__(exc_type, exc_val, exc_tb)
+
+
+# override for our custom progress bar styling
+def rich_open(
+    file: Union[str, "PathLike[str]", bytes],
+    mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r"
+) -> Union[ContextManager[BinaryIO], ContextManager[TextIO]]:
+    desc = f'Reading file at {s.i(file, backend="rich-markup")}'
+    progress = rich_progress(return_progress=True, desc=desc)
+
+    reader = progress.open(
+        file,
+        mode=mode,
+        description=desc,
+    )
+    return _ReadContext(progress, reader)
 
 
 class SpeedTaskProgressColumn(TaskProgressColumn):
@@ -600,7 +643,7 @@ if __name__ == '__main__':
             # sic(ch)
             update(dur=t_ms, char=ch)
             time.sleep(t_ms / 1000)
-    # check_rich_pbar_field()
+    check_rich_pbar_field()
 
     def check_rich_backend_colors():
         txt = 'hello'
@@ -631,4 +674,13 @@ if __name__ == '__main__':
             t_ms = random.randint(5, 300)
             # t_ms = random.randint(5, 10)
             time.sleep(t_ms / 1000)
-    check_tqdm_color()
+    # check_tqdm_color()
+
+    def check_rich_open():
+        import rich.progress
+        path = '../test-both-handler.log.ansi'
+        # with rich.progress.open(path, 'r') as f:
+        with rich_open(path) as f:
+            txt = f.read()
+        sic(txt)
+    check_rich_open()
