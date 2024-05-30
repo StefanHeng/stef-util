@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.42.7'
+VERSION = '0.42.8'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
@@ -13,14 +13,14 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     url='https://github.com/StefanHeng/stef-util',
-    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.42.7.tar.gz',
+    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.42.8.tar.gz',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'click',  # for ANSI styling,
         'rich',  # for ANSI styling & pretty progress bar
         'numpy', 'pandas',
-        'tqdm==4.66.4', 'icecream'
+        'tqdm', 'icecream'
     ],
     extras_require={
         'legacy_styling': ['sty', 'colorama'],

@@ -55,7 +55,7 @@ def rich_open(
     mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r"
 ) -> Union[ContextManager[BinaryIO], ContextManager[TextIO]]:
     desc = f'Reading file {s.i(rel_path(file), backend="rich-markup")}'
-    progress = rich_progress(return_progress=True, desc=desc)
+    progress = rich_progress(return_progress=True, desc=desc, for_file=True)
 
     reader = progress.open(
         file,
@@ -181,9 +181,11 @@ def rich_progress(
         bar_width: int = None,
         return_progress: bool = False,
         fields: Union[List[str], str] = None,
-        field_widths: Union[List[int], int] = None
+        field_widths: Union[List[int], int] = None,
+        for_file: bool = False,
 ) -> Union[Progress, Iterable[ProgressType], Tuple[Iterable[ProgressType], Callable]]:
     from rich.progress import ProgressColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeRemainingColumn
+    from rich.progress import DownloadColumn, TransferSpeedColumn, FileSizeColumn, TotalFileSizeColumn
 
     def get_pad():
         return TextColumn(' ')
@@ -198,10 +200,18 @@ def rich_progress(
     pbar = BarColumn(bar_width=bar_width)
     columns += [
         get_pad(), pbar,
-        get_pad(), TaskProgressColumn(), get_pad(), MofNCompleteColumn(),
-        get_semantic_pad(), CompactTimeElapsedColumn(), TextColumn('>'), TimeRemainingColumn(compact=True),
-        get_pad(), SpeedTaskProgressColumn()
+        get_pad(), TaskProgressColumn(), get_pad()
     ]
+    if for_file:
+        columns += [FileSizeColumn(), TextColumn('/'), TotalFileSizeColumn()]
+        # DownloadColumn(),
+    else:
+        columns.append(MofNCompleteColumn())
+    columns += [
+        get_semantic_pad(), CompactTimeElapsedColumn(), TextColumn('>'), TimeRemainingColumn(compact=True),
+        get_pad(), TransferSpeedColumn() if for_file else SpeedTaskProgressColumn()
+    ]
+
     if fields:
         if isinstance(fields, str):
             fields = [fields]
@@ -229,7 +239,7 @@ def rich_progress(
         if n > 1:
             columns.append(TextColumn('[magenta]}}'))
 
-    progress = Progress(*columns)
+    progress = NoPadProgress(*columns)
     if return_progress:
         return progress
 
@@ -685,4 +695,24 @@ if __name__ == '__main__':
         with rich_open(path) as f:
             txt = f.read()
         sic(txt)
-    check_rich_open()
+    # check_rich_open()
+
+    def check_rich_open_large():
+        def write_large():
+            # write a large file containing random 10M characters
+            import random
+            import string
+            path = 'large.txt'
+            with open(path, 'w') as f:
+                for _ in tqdc(range(100_000_000)):
+                    f.write(random.choice(string.ascii_letters))
+        write_large()
+
+        with rich_open('large.txt') as f:
+            # read 10K characters at a time
+            for _ in range(10_000):
+                txt = f.read(10_000)
+                import time
+                time.sleep(0.001)
+        sic(txt[:10])
+    check_rich_open_large()
