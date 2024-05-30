@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 from tqdm.std import TqdmWarning
 from tqdm.utils import FormatReplace, disp_len, disp_trim
 
+from stefutil.os import rel_path
 from stefutil.prettier.prettier_debug import s, rc
 
 
@@ -24,6 +25,7 @@ def rich_status(desc: str = None, spinner: str = 'arrow3'):
 
 
 _I = typing.TypeVar("_I", TextIO, BinaryIO)
+
 
 # copied over from `rich.progress` for no public access
 class _ReadContext(ContextManager[_I], Generic[_I]):
@@ -47,12 +49,12 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
         self.reader.__exit__(exc_type, exc_val, exc_tb)
 
 
-# override for our custom progress bar styling
+# modified from `rich.progress.open` for our custom progress bar styling
 def rich_open(
     file: Union[str, "PathLike[str]", bytes],
     mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r"
 ) -> Union[ContextManager[BinaryIO], ContextManager[TextIO]]:
-    desc = f'Reading file at {s.i(file, backend="rich-markup")}'
+    desc = f'Reading file {s.i(rel_path(file), backend="rich-markup")}'
     progress = rich_progress(return_progress=True, desc=desc)
 
     reader = progress.open(
@@ -643,7 +645,7 @@ if __name__ == '__main__':
             # sic(ch)
             update(dur=t_ms, char=ch)
             time.sleep(t_ms / 1000)
-    check_rich_pbar_field()
+    # check_rich_pbar_field()
 
     def check_rich_backend_colors():
         txt = 'hello'
@@ -678,7 +680,7 @@ if __name__ == '__main__':
 
     def check_rich_open():
         import rich.progress
-        path = '../test-both-handler.log.ansi'
+        path = '../../stefutil/../stefutil/test-both-handler.log.ansi'
         # with rich.progress.open(path, 'r') as f:
         with rich_open(path) as f:
             txt = f.read()
