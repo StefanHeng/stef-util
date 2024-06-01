@@ -28,11 +28,12 @@ if _use_plot():
     import seaborn as sns
     from matplotlib.patches import Ellipse
     from matplotlib.colors import to_rgba
+    import matplotlib.colors as colors
     import matplotlib.transforms as transforms
 
     __all__ += [
         'set_plot_style', 'LN_KWARGS',
-        'change_bar_width', 'vals2colors', 'set_color_bar', 'barplot'
+        'change_bar_width', 'vals2colors', 'truncate_colormap', 'set_color_bar', 'barplot'
     ]
 
 
@@ -48,9 +49,7 @@ if _use_plot():
         sns.set_style('darkgrid')
         sns.set_context(rc={'grid.linewidth': 0.5})
 
-
     LN_KWARGS = dict(marker='o', ms=0.3, lw=0.25)  # matplotlib line plot default args
-
 
     def change_bar_width(ax, width: float = 0.5, orient: str = 'v'):
         """
@@ -65,7 +64,6 @@ if _use_plot():
             diff = current_width - width
             patch.set_width(width) if is_vert else patch.set_height(width)
             patch.set_x(patch.get_x() + diff * 0.5) if is_vert else patch.set_y(patch.get_y() + diff * 0.5)
-
 
     def vals2colors(
             vals: Iterable[float], color_palette: str = 'Spectral_r', gap: float = None,
@@ -88,6 +86,13 @@ if _use_plot():
         norm = (vals - mi) / (ma - mi)
         return cmap(norm)
 
+    def truncate_colormap(cmap, vmin=0.0, vmax=1.0, n=100):
+        if isinstance(cmap, str):
+            cmap = plt.get_cmap(cmap)
+        cmap: colors.Colormap
+        new_cmap = colors.LinearSegmentedColormap.from_list(
+            name='trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=vmin, b=vmax), colors=cmap(np.linspace(vmin, vmax, n)))
+        return new_cmap
 
     def set_color_bar(vals, ax, color_palette: str = 'Spectral_r', orientation: str = 'vertical'):
         """
@@ -101,7 +106,6 @@ if _use_plot():
         plt.grid(False)
         plt.colorbar(sm, cax=ax, orientation=orientation)
         # plt.xlabel('colorbar')  # doesn't seem to work
-
 
     def barplot(
             data: pd.DataFrame = None,
@@ -146,7 +150,6 @@ if _use_plot():
         if show:
             plt.show()
         return ax
-
 
     def confidence_ellipse(ax_, x, y, n_std=1., **kws):
         """
