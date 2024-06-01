@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from stefutil.prettier import s, ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
-from stefutil.packaging import _use_plot, _use_ml
+from stefutil.packaging import installed_packages, _use_plot, _use_ml
 
 
 __all__ = []
@@ -25,7 +25,6 @@ if _use_plot():
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
-    import seaborn as sns
     from matplotlib.patches import Ellipse
     from matplotlib.colors import to_rgba
     import matplotlib.colors as colors
@@ -46,8 +45,10 @@ if _use_plot():
             r'\usepackage{sansmath}',  # render math sans-serif
             r'\sansmath'
         ]))
-        sns.set_style('darkgrid')
-        sns.set_context(rc={'grid.linewidth': 0.5})
+        if 'seaborn' in installed_packages():
+            import seaborn as sns
+            sns.set_style('darkgrid')
+            sns.set_context(rc={'grid.linewidth': 0.5})
 
     LN_KWARGS = dict(marker='o', ms=0.3, lw=0.25)  # matplotlib line plot default args
 
@@ -77,6 +78,7 @@ if _use_plot():
             If given, reduce visual spread/difference of colors
             Intended for a less drastic color at the extremes
         """
+        import seaborn as sns
         vals = np.asarray(vals)
         cmap = sns.color_palette(color_palette, as_cmap=True)
         mi, ma = np.min(vals), np.max(vals)
@@ -117,6 +119,8 @@ if _use_plot():
             show: bool = True,
             **kwargs
     ):
+        import seaborn as sns
+
         ca(bar_orient=orient)
         if data is not None:
             df = data
@@ -192,21 +196,23 @@ if _use_plot():
             Given vectors grouped by key, plot projections of vectors into 2D space
                 Intended for plotting embedding space of SBert sentence representations
 
-            :param name2vectors: 2D vectors grouped by setup name
-            :param tsne_args: Arguments for TSNE dimensionality reduction
-            :param tight_fig_size: If true, resize the figure to fit the axis range
-            :param key_name: column name for setup in the internal dataframe
-            :param ellipse: If true, plot confidence ellipse for each setup
-            :param ellipse_std: Number of standard deviations for ellipse
-            :param scatter_ms: Base marker size for scatter plot
-                Will be scaled by number of samples in each group
-            :param scatter_kwargs: arguments for scatter plot
-            :param ax: matplotlib axes object to plot on
-            :param title: plot title
-            :param verbose: If true, prints status to logger
-            :param logger: logger
+            :param name2vectors: 2D vectors grouped by setup name.
+            :param tsne_args: Arguments for TSNE dimensionality reduction.
+            :param tight_fig_size: If true, resize the figure to fit the axis range.
+            :param key_name: column name for setup in the internal dataframe.
+            :param ellipse: If true, plot confidence ellipse for each setup.
+            :param ellipse_std: Number of standard deviations for ellipse.
+            :param scatter_ms: Base marker size for scatter plot.
+                Will be scaled by number of samples in each group.
+            :param scatter_kwargs: arguments for scatter plot.
+            :param ax: matplotlib axes object to plot on.
+            :param title: plot title.
+            :param verbose: If true, prints status to logger.
+            :param logger: logger.
             """
             from sklearn.manifold import TSNE  # lazy import to save time
+            import seaborn as sns
+
             vects = np.concatenate(list(name2vectors.values()), axis=0)
             tsne_args_ = dict(n_components=2, perplexity=50, random_state=42)
             tsne_args_.update(tsne_args or dict())

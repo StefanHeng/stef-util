@@ -16,7 +16,8 @@ __all__ = [
     'installed_packages'
 ]
 
-_PKGS_PLT = ['matplotlib', 'seaborn']
+# _PKGS_PLT = ['matplotlib', 'seaborn']  # make seaborn optional
+_PKGS_PLT = ['matplotlib']
 _PKGS_ML = ['scikit-learn']
 _PKGS_DL = ['torch', 'tensorboard', 'transformers', 'sentence-transformers', 'spacy']
 
