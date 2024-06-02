@@ -349,7 +349,11 @@ class PrettyStyler:
     ) -> str:
         if isinstance(x, str) and not is_float(x) and quote_str:
             x = enclose_in_quote(x)
-        x = f'{x:>{pad}}' if pad else x
+        if pad:  # if default padding don't work, convert to string and pad
+            try:
+                x = f'{x:>{pad}}'
+            except TypeError:
+                x = f'{str(x):>{pad}}'
 
         if _DEFAULT_ANSI_BACKEND not in ['click', 'rich', 'colorama', 'rich-markup']:
             raise ValueError(f'ANSI backend {_DEFAULT_ANSI_BACKEND} not recognized')
@@ -747,7 +751,7 @@ if __name__ == '__main__':
             }
         }
         print(s.i(d, align_keys=2, indent=2, pad=5))
-    check_align_d()
+    # check_align_d()
 
     def check_align_edge():
         d1 = dict(a=1, bb=2, ccc=dict(d=3, ee=4, fff=['as', 'as']))
@@ -904,3 +908,20 @@ if __name__ == '__main__':
         print(s.i(path))
     # check_style_path()
 
+    def check_pad():
+        """
+         {
+                random        : {pair-rm: 833, rm-gemma: 605, stable-lm: None},
+                disagree-range: {pair-rm: 299, rm-gemma: None, stable-lm: None},
+                disagree-min  : {pair-rm: 269, rm-gemma: None, stable-lm: None},
+                uncertain     : {pair-rm: 857, rm-gemma: 1041, stable-lm: None}
+        }
+        """
+        d = {
+            'random': {'pair-rm': 833, 'rm-gemma': 605, 'stable-lm': None},
+            'disagree-range': {'pair-rm': 299, 'rm-gemma': None, 'stable-lm': None},
+            'disagree-min': {'pair-rm': 269, 'rm-gemma': None, 'stable-lm': None},
+            'uncertain': {'pair-rm': 857, 'rm-gemma': 1041, 'stable-lm': None}
+        }
+        print(s.i(d, align_keys=1, indent=1, pad=4))
+    check_pad()
