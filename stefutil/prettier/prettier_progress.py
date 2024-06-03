@@ -349,7 +349,13 @@ class CBar(object):
 
         res = charset[-1] * bar_length
         if bar_length < N_BARS:  # whitespace padding
-            res = res + charset[frac_bar_length] + charset[0] * (N_BARS - bar_length - 1)
+            # ======================================= Begin of modified =======================================
+            # res = res + charset[frac_bar_length] + charset[0] * (N_BARS - bar_length - 1)
+            # instead of empty space, use a grey dashed line; style is just like the default for `rich.progress.Progress`
+            if charset[0] != ' ':
+                raise NotImplementedError
+            res = res + charset[frac_bar_length] + s.nb('━' * (N_BARS - bar_length - 1), fg='grey23')
+            # ======================================= End of modified =======================================
         # ======================================= Begin of modified =======================================
         # return self.colour + res + self.COLOUR_RESET if self.colour else res
         return s.i(res, fg=self.colour, bold=False) if self.colour else res
@@ -399,8 +405,8 @@ class tqdc(tqdm):
     """
     override tqdm for custom coloring
     """
-    def __init__(self, iterable=None, colour: str = 'red', **kwargs):  # change default color to show that task not completed
-        super().__init__(iterable, colour=colour, **kwargs)
+    def __init__(self, iterable=None, colour: str = 'red', ascii: str = ' ╺━', **kwargs):  # change default color to show that task not completed
+        super().__init__(iterable, colour=colour, ascii=ascii, **kwargs)
         # if self.total is None:
         #     from operator import length_hint
         #     self.total = length_hint(iterable)
@@ -686,7 +692,7 @@ if __name__ == '__main__':
             t_ms = random.randint(5, 300)
             # t_ms = random.randint(5, 10)
             time.sleep(t_ms / 1000)
-    # check_tqdm_color()
+    check_tqdm_color()
 
     def check_rich_open():
         import rich.progress
@@ -715,4 +721,4 @@ if __name__ == '__main__':
                 import time
                 time.sleep(0.001)
         sic(txt[:10])
-    check_rich_open_large()
+    # check_rich_open_large()

@@ -802,7 +802,7 @@ if __name__ == '__main__':
         logger.info('hello')
         logger.warning('world')
         logger.error(f"I'm {s.i('Stefan')}")
-    # check_coloring()
+    check_coloring()
 
     def check_nested_style():
         def show_single(text_: str = None):
@@ -924,4 +924,4 @@ if __name__ == '__main__':
             'uncertain': {'pair-rm': 857, 'rm-gemma': 1041, 'stable-lm': None}
         }
         print(s.i(d, align_keys=1, indent=1, pad=4))
-    check_pad()
+    # check_pad()
