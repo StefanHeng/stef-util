@@ -5,7 +5,7 @@ from typing import List, Union, Any
 from tqdm import tqdm
 
 from stefutil.container import group_n
-from stefutil.prettier import get_logger, s, ca
+from stefutil.prettier import get_logger, style as s, check_arg as ca
 from stefutil.packaging import _use_dl
 
 

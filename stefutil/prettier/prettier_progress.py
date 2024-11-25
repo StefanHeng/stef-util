@@ -11,7 +11,7 @@ from tqdm.std import TqdmWarning
 from tqdm.utils import FormatReplace, disp_len, disp_trim
 
 from stefutil.os import rel_path
-from stefutil.prettier.prettier_debug import s, rc
+from stefutil.prettier.prettier_debug import style as s, rich_console
 
 
 __all__ = [
@@ -21,7 +21,7 @@ __all__ = [
 
 
 def rich_status(desc: str = None, spinner: str = 'arrow3'):
-    return rc.status(status=desc, spinner=spinner)
+    return rich_console.status(status=desc, spinner=spinner)
 
 
 _I = typing.TypeVar("_I", TextIO, BinaryIO)

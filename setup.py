@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.42.12'
+VERSION = '0.42.13'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
@@ -13,7 +13,7 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     url='https://github.com/StefanHeng/stef-util',
-    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.42.12.tar.gz',
+    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.42.13.tar.gz',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[

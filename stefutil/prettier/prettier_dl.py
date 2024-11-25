@@ -8,7 +8,8 @@ from collections.abc import Sized
 
 from tqdm.auto import tqdm
 
-from stefutil.prettier import s, ca
+from stefutil.prettier.prettier_debug import style as s
+from stefutil.prettier.prettier_log import check_arg as ca
 from stefutil.packaging import _use_dl
 
 

@@ -6,7 +6,7 @@ import sys
 import math
 from typing import Tuple, Dict, Union, Iterable, Any
 
-from stefutil.prettier import fmt_num, fmt_sizeof, ca
+from stefutil.prettier import fmt_num, fmt_sizeof, check_arg as ca
 from stefutil.packaging import _use_ml, _use_dl
 
 

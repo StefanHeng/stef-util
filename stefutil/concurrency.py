@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
 
 from stefutil.container import group_n
-from stefutil.prettier import ca
+from stefutil.prettier import check_arg as ca
 
 
 __all__ = ['conc_map', 'batched_conc_map', 'conc_yield']
@@ -346,7 +346,7 @@ if DEV:
 
 
 if __name__ == '__main__':
-    from stefutil.prettier import rich_progress, rcl
+    from stefutil.prettier import rich_progress, rich_console_log
 
     def try_concurrent_yield():
         # this will gather all results and return
@@ -366,9 +366,9 @@ if __name__ == '__main__':
         n = 10
         # for res in conc_map(fn=_work, args=range(n), with_tqdm=dict(total=n), n_worker=4, mode='process'):
         #     sic(res)
-        from stefutil.prettier import rcl
+        from stefutil.prettier import rich_console_log
         for res in rich_progress(conc_map(fn=_work, args=range(n), mode='process'), total=n):
-            rcl(res)
+            rich_console_log(res)
     # check_conc_map()
 
     def check_conc_yield():
@@ -437,5 +437,5 @@ if __name__ == '__main__':
             i, _ = i
             # logger.info(f'Process {s.i(i)} terminated')
             lst.append(i)
-        rcl(lst)
+        rich_console_log(lst)
     check_conc_process_chunk()

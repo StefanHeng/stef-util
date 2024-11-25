@@ -14,11 +14,11 @@ from stefutil.prettier import enclose_in_quote
 
 
 __all__ = [
-    'MyIceCreamDebugger', 'sic',
-    'rc', 'rcl',
+    'MyIceCreamDebugger', 'icecream',
+    'rich_console', 'rich_console_log',
     '_DEFAULT_ANSI_BACKEND', '_ANSI_REST_ALL',
     'to_rich_markup',
-    'render_nested_ansi_pairs', 'PrettyStyler', 's', 'style',
+    'render_nested_ansi_pairs', 'PrettyStyler', 'style',
 ]
 
 
@@ -42,10 +42,10 @@ class MyIceCreamDebugger(IceCreamDebugger):
 
 
 # syntactic sugar
-sic = MyIceCreamDebugger()
+sic = icecream = MyIceCreamDebugger()
 
-rc = Console()
-rcl = rc.log
+rich_console = Console()
+rich_console_log = rich_console.log
 
 
 @dataclass
@@ -244,8 +244,8 @@ class ClickNRichStyler(AnsiStyler):
                 import rich.style
                 style_args['color'] = style_args.pop('fg')
                 style_args['bgcolor'] = style_args.pop('bg')
-                style = rich.style.Style(**style_args)
-                return style.render(text=str(x))  # explicitly convert to str for `False` and `None` styling
+                style_ = rich.style.Style(**style_args)
+                return style_.render(text=str(x))  # explicitly convert to str for `False` and `None` styling
 
             elif self.backend == 'rich-markup':
                 if kwargs != dict():
@@ -270,6 +270,7 @@ class PrettyStyler:
         False: dict(fg='Br', italic=True),
         int: dict(fg='Bc'),
         float: dict(fg='Bc'),
+        'keyword': dict(fg='Bm'),
         str: dict(fg='Bg'),
         'path': dict(fg='m')
     }
@@ -336,6 +337,9 @@ class PrettyStyler:
             elif isinstance(x, Path) \
                     or (isinstance(x, str) and (os.path.exists(x) or len(x) < 256 and x.count(os.sep) >= 2)):  # heuristics to check for path
                 tp = 'path'
+            # consider `__XXX__` a special keyword
+            elif isinstance(x, str) and x.startswith('__') and x.endswith('__'):
+                tp = 'keyword'
             else:
                 tp = type(x)
             ret = d.get(tp, dict())
@@ -925,3 +929,8 @@ if __name__ == '__main__':
         }
         print(s.i(d, align_keys=1, indent=1, pad=4))
     # check_pad()
+
+    def check_style_keyword():
+        d = {'__correct__': 1, '__not_named_entity__': 2, '__wrong_boundary__': 3, '__wrong_type__': 4, 'incorrect ': 5}
+        print(s.i(d, color_keys=True))
+    check_style_keyword()

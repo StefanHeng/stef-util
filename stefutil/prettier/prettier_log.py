@@ -3,11 +3,11 @@ import re
 import sys
 import logging
 import datetime
-from typing import List, Dict, Union, Optional, Any, Callable
+from typing import List, Dict, Union, Optional, Any, Callable, Iterable
 from collections import OrderedDict
 
 from stefutil.prettier.prettier import hex2rgb
-from stefutil.prettier.prettier_debug import s, _DEFAULT_ANSI_BACKEND, _ANSI_REST_ALL
+from stefutil.prettier.prettier_debug import style as s, _DEFAULT_ANSI_BACKEND, _ANSI_REST_ALL
 
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
     'filter_ansi', 'CleanAnsiFileHandler', 'AnsiFileMap',
     'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
 
-    'CheckArg', 'ca',
+    'CheckArg', 'check_arg',
 
     'now', 'date',
 ]
@@ -72,6 +72,87 @@ def date():
     syntactic sugar for `now()` to just get the date
     """
     return now(for_path=True, fmt='short-date')
+
+
+def _color_code_string(prompt: str = None) -> str:
+    """
+    Color-code a prompt for semantic segmentation by a simple heuristic
+    """
+    # first, split up the prompt into sections
+    ret = ''
+    sep = '\n\n'
+    segs = prompt.split(sep)
+    it = iter(segs)
+    prev = None
+    curr = next(it)
+    assert curr is not None
+    cs = ['b', 'm', 'r', 'y', 'g']
+    i_c = None
+    while curr is not None:
+        # iteratively check, does the difference between current and next segment indicate a new section?
+        # if prev is not None:
+        # declare different is current segment is pretty long, via either char count or line count
+        long_enough = False
+        n_lines = curr.count('\n')
+        n_chars = len(curr)
+        if n_chars > 250:
+            long_enough = True
+        elif n_chars > 150 and n_lines > 0:
+            long_enough = True
+        elif n_lines > 0 and all(len(c) > 60 for c in curr.split('\n')):
+            long_enough = True
+        elif '\n' not in curr and n_chars > 120:
+            long_enough = True
+        elif n_lines > 3:
+            long_enough = True
+        elif '---' in curr or 'Examples:' in curr:
+            long_enough = True
+        if prev is None:
+            i_c = 0
+        elif long_enough:
+            i_c = (i_c + 1) % len(cs)
+        print(long_enough)
+        ret += f'{s.i(curr, fg=cs[i_c])}{sep}'
+
+        prev = curr
+        curr = next(it, None)
+    return ret
+
+
+def print_strings(strings: Union[Callable[[], str], List[str], Iterable[str]], n: int = None) -> List[str]:
+    """
+    color codes a list of strings with heuristics to separate semantic sections
+
+    :param strings: a list of strings or a callable that returns a string
+    :param n: number of strings to print
+    """
+    if isinstance(strings, list):
+        assert n is None
+        prompts = strings
+        n = len(prompts)
+    elif hasattr(strings, '__iter__'):
+        prompts = list(strings)
+        if n is not None:
+            n = min(n, len(prompts))
+    else:
+        n = n or 5
+        prompts = [strings() for _ in range(n)]
+
+        if any(not p for p in prompts):
+            prompts = [p for p in prompts if p]  # filter out empty/None prompts
+            n = len(prompts)
+            assert n > 0
+    assert all(isinstance(p, str) for p in prompts)  # sanity check
+
+    # prompts = [f'Prompt {i}:\n{pl.i(p)}' for i, p in enumerate(prompts, start=1)]
+    prompts = [f'String {i}:\n{_color_code_string(p)}' for i, p in enumerate(prompts, start=1)]
+    if n == 1:
+        print(prompts[0])
+    else:
+        for i in range(n):
+            sep = '\n\n\n' if i != n - 1 else ''
+            print(f'{prompts[i]}{sep}')
+    return prompts
 
 
 class MyTheme:
@@ -306,7 +387,7 @@ class AnsiFileMap:
 
 
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug',
+        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug', file_mode: str = 'a',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
@@ -319,6 +400,7 @@ def get_logging_handler(
         If `file+ansi`, both file write handlers w/ and w/o ANSI style filtering
     :param file_path: File path for file logging.
     :param level: Logging level for the handler.
+    :param file_mode: File mode for file logging.
     :param ansi_file_map: Mapping function for the ANSI file handler:
         Returns the mapped file path for ANSI given the original file path.
     """
@@ -353,7 +435,7 @@ def get_logging_handler(
 
             # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
             cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
-            handler = cls(file_path)
+            handler = cls(file_path, mode=file_mode)
         set_level(handler, level=level)
         handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'file-w/-ansi']))
         handler.addFilter(HandlerFilter(handler_name=kind))
@@ -468,7 +550,7 @@ class CheckArg:
         setattr(self, attr_name, options)
 
 
-ca = CheckArg()
+ca = check_arg = CheckArg()
 ca.cache_options(  # See `stefutil::plot.py`
     'Bar Plot Orientation', attr_name='bar_orient', options=['v', 'h', 'vertical', 'horizontal']
 )
@@ -573,3 +655,12 @@ if __name__ == '__main__':
         print(txt)
         print(filter_ansi(txt))
     # check_filter_ansi()
+
+    def check_print_str():
+        lst = [
+            "a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string"
+            "\n\n\n\n\n\n\n\n\n a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string a long string\n\n\n\n\na long string\n\n\nasdsadasasd",
+            'hello world'
+        ]
+        print_strings(lst)
+    check_print_str()

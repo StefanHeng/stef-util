@@ -10,7 +10,7 @@ import logging
 from typing import List, Dict, Iterable, Callable, Any, Union
 from dataclasses import dataclass
 
-from stefutil.prettier import s, ca, get_logger, Timer
+from stefutil.prettier import style as s, check_arg as ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
 from stefutil.packaging import installed_packages, _use_plot, _use_ml
 
@@ -37,9 +37,9 @@ if _use_plot():
 
 
     def set_plot_style():
-        plt.rc('figure', figsize=(16, 9))
-        plt.rc('figure.constrained_layout', use=True)
-        plt.rc('text.latex', preamble='\n'.join([
+        plt.rich_console('figure', figsize=(16, 9))
+        plt.rich_console('figure.constrained_layout', use=True)
+        plt.rich_console('text.latex', preamble='\n'.join([
             r'\usepackage{nicefrac}',
             r'\usepackage{helvet}',
             r'\usepackage{sansmath}',  # render math sans-serif

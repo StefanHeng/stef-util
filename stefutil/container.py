@@ -7,7 +7,7 @@ from typing import Tuple, List, Dict, Iterable, Callable, TypeVar, Any, Union
 from functools import reduce
 from collections import OrderedDict
 
-from stefutil.prettier import s
+from stefutil.prettier import style as s
 from stefutil.packaging import _use_dl
 
 

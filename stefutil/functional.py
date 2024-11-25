@@ -7,7 +7,7 @@ import time
 from os.path import join as os_join
 from typing import Callable, Union, Any
 
-from stefutil.prettier import ca, date
+from stefutil.prettier import check_arg as ca, date
 
 
 __all__ = ['profile_runtime', 'RecurseLimit']

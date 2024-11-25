@@ -9,7 +9,7 @@ from typing import List, Dict, Union
 
 from stefutil.container import get
 from stefutil.os import rel_path
-from stefutil.prettier import now, ca, get_logger, s
+from stefutil.prettier import now, check_arg as ca, get_logger, style as s
 
 
 __all__ = ['SConfig', 'PathUtil']
