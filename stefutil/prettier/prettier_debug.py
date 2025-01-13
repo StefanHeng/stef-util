@@ -23,9 +23,10 @@ __all__ = [
 
 
 class MyIceCreamDebugger(IceCreamDebugger):
-    def __init__(self, output_width: int = 120, **kwargs):
+    def __init__(self, output_width: int = 120, sort_dicts: bool = False, **kwargs):
         self._output_width = output_width
-        kwargs.update(argToStringFunction=lambda x: pprint.pformat(x, width=output_width))
+        self._sort_dicts = sort_dicts
+        kwargs.update(argToStringFunction=lambda x: pprint.pformat(x, width=output_width, sort_dicts=sort_dicts))
         super().__init__(**kwargs)
         self.lineWrapWidth = output_width
 
@@ -38,7 +39,18 @@ class MyIceCreamDebugger(IceCreamDebugger):
         if value != self._output_width:
             self._output_width = value
             self.lineWrapWidth = value
-            self.argToStringFunction = lambda x: pprint.pformat(x, width=value)
+            self.argToStringFunction = lambda x: pprint.pformat(x, width=value, sort_dicts=self.sort_dicts)
+
+    @property
+    def sort_dicts(self):
+        return self._sort_dicts
+
+    @sort_dicts.setter
+    def sort_dicts(self, value):
+        value = bool(value)
+        if value != self._sort_dicts:
+            self._sort_dicts = value
+            self.argToStringFunction = lambda x: pprint.pformat(x, width=self.output_width, sort_dicts=value)
 
 
 # syntactic sugar
@@ -65,6 +77,15 @@ def _adjust_indentation(
     idt = indent_str * (indent_level - 1)
     post = f'\n{idt}{postfix}'
     return AdjustIndentOutput(prefix=pref, postfix=post, sep=sep)
+
+
+def _get_container_max_depth(x: Union[Dict, Dict, Tuple, str, Any]) -> int:
+    if isinstance(x, dict):
+        return 1 + max(_get_container_max_depth(v) for v in x.values())
+    elif isinstance(x, list):
+        return 1 + max(_get_container_max_depth(e) for e in x)
+    # consider tuple as a static value/non-container
+    return 0
 
 
 # support the `colorama` package for terminal ANSI styling as legacy backend
@@ -401,7 +422,12 @@ class PrettyStyler:
                     assert indent is True
                     indent = float('inf')
                 else:
-                    assert isinstance(indent, int) and indent > 0  # sanity check
+                    assert isinstance(indent, int) and indent != 0  # sanity check
+
+                if indent < 0:  # negative indent for counting indent backwards
+                    # => figure out the proper forward indent level
+                    indent = _get_container_max_depth(x) + indent
+
                 kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
                 kwargs['indent_str'] = indent_str
             kwargs['backend'] = backend
@@ -933,4 +959,16 @@ if __name__ == '__main__':
     def check_style_keyword():
         d = {'__correct__': 1, '__not_named_entity__': 2, '__wrong_boundary__': 3, '__wrong_type__': 4, 'incorrect ': 5}
         print(s.i(d, color_keys=True))
-    check_style_keyword()
+    # check_style_keyword()
+
+    def check_backward_indent():
+        d = {'a': {'b': {'c': {'d': {'e': 1}}}}}
+        print(s.i(d, indent=-1))
+        print(s.i(d, indent=-2))
+        print(s.i(d, indent=-3))
+
+        l = [[[[[[1]]]]]]
+        print(s.i(l, indent=-1))
+        print(s.i(l, indent=-2))
+        print(s.i(l, indent=-3))
+    check_backward_indent()
