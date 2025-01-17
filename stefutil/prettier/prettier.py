@@ -52,20 +52,23 @@ def fmt_sizeof(num: int, suffix='B', stop_power: Union[int, float] = 1) -> str:
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def fmt_delta(secs: Union[int, float, datetime.timedelta]) -> str:
+def fmt_delta(secs: Union[int, float, datetime.timedelta], n_digit: int = None) -> str:
+    """
+    Prettier format time for human readability
+    """
     if isinstance(secs, datetime.timedelta):
         secs = 86400 * secs.days + secs.seconds + (secs.microseconds/1e6)
     if secs >= 86400:
-        d = secs // 86400  # // floor division
-        return f'{round(d)}d{fmt_delta(secs - d * 86400)}'
+        return f'{int(secs // 86400)}d{fmt_delta(secs=secs % 86400, n_digit=n_digit)}'
     elif secs >= 3600:
-        h = secs // 3600
-        return f'{round(h)}h{fmt_delta(secs - h * 3600)}'
+        return f'{int(secs // 3600)}h{fmt_delta(secs % 3600, n_digit=n_digit)}'
     elif secs >= 60:
-        m = secs // 60
-        return f'{round(m)}m{fmt_delta(secs - m * 60)}'
+        return f'{int(secs // 60)}m{fmt_delta(secs % 60, n_digit=n_digit)}'
     else:
-        return f'{round(secs)}s'
+        if isinstance(n_digit, int) and n_digit > 0:
+            return f'{secs:.{n_digit}f}s'
+        else:
+            return f'{round(secs)}s'
 
 
 def sec2mmss(sec: int) -> str:
@@ -181,7 +184,21 @@ if __name__ == '__main__':
         sic(now_, last_day)
         diff = now_ - last_day
         sic(diff, fmt_delta(diff))
-    # check_time_delta()
+    check_time_delta()
+
+    def check_time_delta_digits():
+        sic(fmt_delta(86523.567, n_digit=3))  # Output: "1d0h2m3.567s"
+        sic(fmt_delta(3661.123, n_digit=1))  # Output: "1h1m1.1s"
+
+        sic(fmt_delta(59.987, n_digit=2))
+        sic(fmt_delta(59.987, n_digit=1))
+        sic(fmt_delta(59.987, n_digit=0))  # Output: "60s"
+        sic(fmt_delta(59.987))
+
+        n = 1
+        sec = 32424.123412
+        sic(f'{sec:.{n}f}s')
+    check_time_delta_digits()
 
     def check_float_pad():
         d = dict(ratio=0.95)
