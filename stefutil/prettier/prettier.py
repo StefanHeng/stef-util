@@ -164,7 +164,7 @@ class Timer:
     def start(self):
         self.time_start = datetime.datetime.now()
 
-    def end(self, n_digit_delta: int = None, prettier: bool = True) -> str:
+    def end(self, n_digit_delta: int = None, prettier: Union[bool, datetime.timedelta] = True) -> str:
         if self.time_start is None:
             raise ValueError('Counter not started')
 
