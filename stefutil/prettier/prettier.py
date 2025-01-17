@@ -164,14 +164,15 @@ class Timer:
     def start(self):
         self.time_start = datetime.datetime.now()
 
-    def end(self):
+    def end(self, n_digit_delta: int = None, prettier: bool = True) -> str:
         if self.time_start is None:
             raise ValueError('Counter not started')
 
         if self.time_end is not None:
             raise ValueError('Counter already ended')
         self.time_end = datetime.datetime.now()
-        return fmt_delta(self.time_end - self.time_start)
+        delta = self.time_end - self.time_start
+        return fmt_delta(delta, n_digit=n_digit_delta) if prettier else delta
 
 
 if __name__ == '__main__':
@@ -184,7 +185,7 @@ if __name__ == '__main__':
         sic(now_, last_day)
         diff = now_ - last_day
         sic(diff, fmt_delta(diff))
-    check_time_delta()
+    # check_time_delta()
 
     def check_time_delta_digits():
         sic(fmt_delta(86523.567, n_digit=3))  # Output: "1d0h2m3.567s"
@@ -198,7 +199,7 @@ if __name__ == '__main__':
         n = 1
         sec = 32424.123412
         sic(f'{sec:.{n}f}s')
-    check_time_delta_digits()
+    # check_time_delta_digits()
 
     def check_float_pad():
         d = dict(ratio=0.95)
@@ -229,3 +230,12 @@ if __name__ == '__main__':
         # print(s.i(d))
         print(s.i(d, quote_str=True, bold=False))
     # check_style_diff_objects()
+
+    def check_timer():
+        import time
+
+        t = Timer()
+        time.sleep(1.5)
+        delta = t.end(prettier=False)
+        sic(delta, type(delta))
+    check_timer()
