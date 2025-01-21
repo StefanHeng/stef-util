@@ -362,12 +362,26 @@ LOG_STR2LOG_LEVEL = {
 }
 
 
+LogLevel = Union[str, int]
+
+
+def _level2int_level(level: LogLevel) -> int:
+    if isinstance(level, str):
+        return LOG_STR2LOG_LEVEL[level.lower()]
+    else:
+        assert isinstance(level, int)
+        return level
+
+
 def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Union[str, int] = None):
     """
     Set logging level for the logger
     """
     if isinstance(level, str):
         level = LOG_STR2LOG_LEVEL[level.lower()]
+    else:
+        print('in set_level: ', level)
+        assert isinstance(level, int)
     logger.setLevel(level)
 
 
@@ -387,7 +401,7 @@ class AnsiFileMap:
 
 
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str = None, level: Union[str, int] = 'debug', file_mode: str = 'a',
+        kind: str = 'stdout', file_path: str = None, level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_mode: str = 'a',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
@@ -406,13 +420,13 @@ def get_logging_handler(
     """
     if kind in ['both', 'both+ansi', 'file+ansi']:  # recursive case
         std, fl_ansi = None, None
-        fl = get_logging_handler(kind='file', file_path=file_path)
+        fl = get_logging_handler(kind='file', file_path=file_path, level=level, file_mode=file_mode)
 
         if kind in ['both', 'both+ansi']:
-            std = get_logging_handler(kind='stdout')
+            std = get_logging_handler(kind='stdout', level=level)
         if kind in ['both+ansi', 'file+ansi']:
             map_ = ansi_file_map or AnsiFileMap.append_ext
-            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=map_(file_path))
+            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=map_(file_path), level=level, file_mode=file_mode)
 
         if kind == 'both':
             return [std, fl]
@@ -436,7 +450,10 @@ def get_logging_handler(
             # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
             cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
             handler = cls(file_path, mode=file_mode)
-        set_level(handler, level=level)
+        if isinstance(level, dict):
+            level = level['stdout' if kind == 'stdout' else 'file']
+        if level:
+            set_level(handler, level=level)
         handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'file-w/-ansi']))
         handler.addFilter(HandlerFilter(handler_name=kind))
         return handler
@@ -456,11 +473,11 @@ def drop_file_handler(logger: logging.Logger = None):
     return logger
 
 
-def add_log_handler(logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+def add_log_handler(logger: logging.Logger = None, level: Dict[str, LogLevel] = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
     """
     Adds handler(s) to the logger
     """
-    handlers = get_logging_handler(kind=kind, file_path=file_path)
+    handlers = get_logging_handler(kind=kind, file_path=file_path, level=level)
 
     if drop_prev_handlers:
         drop_file_handler(logger=logger)
@@ -478,21 +495,34 @@ def add_file_handler(logger: logging.Logger = None, file_path: str = None, kind:
 
 
 def get_logger(
-        name: str, kind: str = 'stdout', level: Union[str, int] = 'debug', file_path: str = None
+        name: str, kind: str = 'stdout', level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_path: str = None
 ) -> logging.Logger:
     """
     :param name: name of the logger.
     :param kind: logger type, one of [`stdout`, `file`, `both`].
         `both` intended for writing to terminal with color and *then* removing styles for file.
     :param level: logging level.
+        If dict, expect the corresponding level for each handler kind (one of `stdout`, `file`).
     :param file_path: the file path for file logging.
     """
     assert kind in ['stdout', 'file-write', 'both', 'both+ansi'], f'Logger kind {s.i(kind)} not recognized'
-    logger = logging.getLogger(f'{name} file' if kind == 'file' else name)
-    logger.handlers = []  # A crude way to remove prior handlers, ensure only 1 handler per logger
-    set_level(logger, level=level)
+    logger = logging.getLogger(f'{name} file' if kind == 'file-write' else name)
+    logger.handlers = []  # A crude way to remove prior handlers in case of conflict w/ later added handlers
 
-    add_log_handler(logger, file_path=file_path, kind=kind)
+    need_detailed_filtering = False
+    if isinstance(level, dict):
+        if len(set(level.keys())) > 1:
+            need_detailed_filtering = True
+        else:  # no need for detailed filtering
+            level = level[next(iter(level.keys()))]
+    if need_detailed_filtering:
+        assert set(level.keys()) == {'stdout', 'file'}  # sanity check
+        min_level = min(_level2int_level(lvl) for lvl in level.values())
+    else:
+        min_level = level
+    set_level(logger, level=min_level)
+
+    add_log_handler(logger, level=level if need_detailed_filtering else None, file_path=file_path, kind=kind)
     logger.propagate = False
     return logger
 
@@ -663,4 +693,14 @@ if __name__ == '__main__':
             'hello world'
         ]
         print_strings(lst)
-    check_print_str()
+    # check_print_str()
+
+    def check_diff_log_level():
+        path = 'test-diff-log-level.log'
+        lg = get_logger('test', kind='both+ansi', level=dict(stdout='warning', file='debug'), file_path=path)
+        lg.debug('debug')
+        lg.info('info')
+        lg.warning('warning')
+        lg.error('error')
+        lg.critical('critical')
+    check_diff_log_level()

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.43.3'
+VERSION = '0.43.4'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
