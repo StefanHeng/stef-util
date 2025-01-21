@@ -111,7 +111,6 @@ def _color_code_string(prompt: str = None) -> str:
             i_c = 0
         elif long_enough:
             i_c = (i_c + 1) % len(cs)
-        print(long_enough)
         ret += f'{s.i(curr, fg=cs[i_c])}{sep}'
 
         prev = curr
@@ -380,7 +379,6 @@ def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Unio
     if isinstance(level, str):
         level = LOG_STR2LOG_LEVEL[level.lower()]
     else:
-        print('in set_level: ', level)
         assert isinstance(level, int)
     logger.setLevel(level)
 
