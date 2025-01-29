@@ -67,7 +67,7 @@ def profile_runtime(
 
         if mode == 'cumulative':
             with open(f'{fnm}.log', 'w') as f:
-                stats.stream = f
+                statstyletream = f
                 stats.print_stats()
         else:
             profiler.write_html(path=f'{fnm}.html')

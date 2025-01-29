@@ -4,6 +4,7 @@ concurrency
 intended for (potentially heavy) data processing
 """
 
+
 import os
 import heapq
 import concurrent.futures
@@ -322,16 +323,16 @@ if DEV:
     import time
     import random
 
-    from stefutil.prettier import s, sic, get_logger
+    from stefutil.prettier import style, icecream as sic, get_logger
 
     logger = get_logger('Conc Dev')
 
     def _work(task_idx: int = None):
         t = round(random.uniform(0.5, 3), 3)
-        print(f'Task {s.i(task_idx)} launched, will sleep for {s.i(t)} s')
+        print(f'Task {style(task_idx)} launched, will sleep for {style(t)} s')
         time.sleep(t)
 
-        print(f'Task {s.i(task_idx)} is done')
+        print(f'Task {style(task_idx)} is done')
         return task_idx
 
 
@@ -409,12 +410,12 @@ if __name__ == '__main__':
                     if remove_job:
                         futures.remove(f)
                     n_processed += 1
-                    logger.info(f'Process {s.i(i)} terminated, {s.i(n_processed)} / {s.i(n)} processed')
+                    logger.info(f'Process {style(i)} terminated, {style(n_processed)} / {style(n)} processed')
         else:
             args = dict(with_tqdm=dict(total=n), n_worker=3, mode='process', batch_size=4)
             for i in conc_yield(fn=_dummy_fn, args=range(n), **args):
                 i, _ = i
-                logger.info(f'Process {s.i(i)} terminated')
+                logger.info(f'Process {style(i)} terminated')
     # test_conc_mem_use()
 
     def check_conc_process_chunk():

@@ -7,7 +7,7 @@ from typing import List, Dict, Union, Optional, Any, Callable, Iterable
 from collections import OrderedDict
 
 from stefutil.prettier.prettier import hex2rgb
-from stefutil.prettier.prettier_debug import style as s, _DEFAULT_ANSI_BACKEND, _ANSI_REST_ALL
+from stefutil.prettier.prettier_debug import style, _DEFAULT_ANSI_BACKEND, _ANSI_REST_ALL
 
 
 __all__ = [
@@ -57,7 +57,7 @@ def now(
         if color:
             # split the string on separation chars and join w/ the colored numbers
             fg = color if isinstance(color, str) else 'green'
-            nums = [s.s(num, fg=fg) for num in re.split(r'[\s\-:._]', ret)]
+            nums = [style(num, fg=fg) for num in re.split(r'[\s\-:._]', ret)]
             puncs = re.findall(r'[\s\-:._]', ret)
             assert len(nums) == len(puncs) + 1
             ret = ''.join([n + p for n, p in zip(nums, puncs)]) + nums[-1]
@@ -111,7 +111,7 @@ def _color_code_string(prompt: str = None) -> str:
             i_c = 0
         elif long_enough:
             i_c = (i_c + 1) % len(cs)
-        ret += f'{s.i(curr, fg=cs[i_c])}{sep}'
+        ret += f'{style(curr, fg=cs[i_c])}{sep}'
 
         prev = curr
         curr = next(it, None)
@@ -256,7 +256,7 @@ class MyFormatter(logging.Formatter):
             self.ref_style_args = MyFormatter.ref.copy()
             self.ref_style_args.update(style_ref or dict())
 
-            color_time = s.s(MyFormatter.KW_TIME, **self.time_style_args) + s.s('|', **self.sep_style_args)
+            color_time = style(MyFormatter.KW_TIME, **self.time_style_args) + style('|', **self.sep_style_args)
         else:
             assert _DEFAULT_ANSI_BACKEND == 'colorama'
             if style_time:
@@ -268,7 +268,7 @@ class MyFormatter(logging.Formatter):
         def args2fmt(args_):
             if self.with_color:
                 if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
-                    return color_time + self.fmt_meta(*args_) + s.s(': ', **self.sep_style_args) + MyFormatter.KW_MSG + _ANSI_REST_ALL
+                    return color_time + self.fmt_meta(*args_) + style(': ', **self.sep_style_args) + MyFormatter.KW_MSG + _ANSI_REST_ALL
                 else:
                     assert _DEFAULT_ANSI_BACKEND == 'colorama'
                     return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
@@ -283,11 +283,11 @@ class MyFormatter(logging.Formatter):
     def fmt_meta(self, meta_abv, meta_style: Union[str, Dict[str, Any]] = None):
         if self.with_color:
             if _DEFAULT_ANSI_BACKEND in ['click', 'rich']:
-                return '[' + s.s(MyFormatter.KW_NAME, **self.ref_style_args) + ']' \
-                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FUNC_NM, **self.ref_style_args) \
-                    + s.s('::', **self.sep_style_args) + s.s(MyFormatter.KW_FNM, **self.ref_style_args) \
-                    + s.s(':', **self.sep_style_args) + s.s(MyFormatter.KW_LINENO, **self.ref_style_args) \
-                    + s.s(':', **self.sep_style_args) + s.s(meta_abv, **meta_style)
+                return '[' + style(MyFormatter.KW_NAME, **self.ref_style_args) + ']' \
+                    + style('::', **self.sep_style_args) + style(MyFormatter.KW_FUNC_NM, **self.ref_style_args) \
+                    + style('::', **self.sep_style_args) + style(MyFormatter.KW_FNM, **self.ref_style_args) \
+                    + style(':', **self.sep_style_args) + style(MyFormatter.KW_LINENO, **self.ref_style_args) \
+                    + style(':', **self.sep_style_args) + style(meta_abv, **meta_style)
             else:
                 assert _DEFAULT_ANSI_BACKEND == 'colorama'
                 return (f'[{MyFormatter.purple}{MyFormatter.KW_NAME}{MyFormatter.RESET}]'
@@ -398,48 +398,54 @@ class AnsiFileMap:
         return f'{file_path}.ansi'
 
 
+_file_logging_kinds = ['file', 'colored-file', 'file+colored-file']
+_mult_logging_kinds = ['std+file', 'std+file+colored-file', 'file+colored-file']
+_logging_kinds = ['stdout'] + _file_logging_kinds + _mult_logging_kinds
+_logging_kinds = list(dict.fromkeys(_logging_kinds))  # remove duplicates
+
+
 def get_logging_handler(
         kind: str = 'stdout', file_path: str = None, level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_mode: str = 'a',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
-    :param kind: Handler kind, one of [`stdout`, `file`, `file-w/-ansi`, `both`, `both+ansi`, `file+ansi`].
+    :param kind: Handler kind, one of [`stdout`, `file`, `colored-file`, `std+file`, `std+file+colored-file`, `file+colored-file`].
         If `stdout`, handler for stdout
         If `file`, handler for file write (with ANSI style filtering)
-        If `file-w/-ansi`, handler for file write as is (i.e., without ANSI style filtering)
-        If `both`, both stdout and file write handlers
-        If `both+ansi`, `both` + file write handlers with ANSI style filtering
-        If `file+ansi`, both file write handlers w/ and w/o ANSI style filtering
+        If `colored-file`, handler for file write as is (i.e., without ANSI style filtering)
+        If `std+file`, both stdout and file write handlers
+        If `std+file+colored-file`, `both` + file write handlers with ANSI style filtering
+        If `file+colored-file`, both file write handlers w/ and w/o ANSI style filtering
     :param file_path: File path for file logging.
     :param level: Logging level for the handler.
     :param file_mode: File mode for file logging.
     :param ansi_file_map: Mapping function for the ANSI file handler:
         Returns the mapped file path for ANSI given the original file path.
     """
-    if kind in ['both', 'both+ansi', 'file+ansi']:  # recursive case
+    if kind in _mult_logging_kinds:  # recursive case
         std, fl_ansi = None, None
         fl = get_logging_handler(kind='file', file_path=file_path, level=level, file_mode=file_mode)
 
-        if kind in ['both', 'both+ansi']:
+        if 'std' in kind:
             std = get_logging_handler(kind='stdout', level=level)
-        if kind in ['both+ansi', 'file+ansi']:
+        if 'colored-file' in kind:
             map_ = ansi_file_map or AnsiFileMap.append_ext
-            fl_ansi = get_logging_handler(kind='file-w/-ansi', file_path=map_(file_path), level=level, file_mode=file_mode)
+            fl_ansi = get_logging_handler(kind='colored-file', file_path=map_(file_path), level=level, file_mode=file_mode)
 
-        if kind == 'both':
+        if kind == 'std+file':
             return [std, fl]
-        elif kind == 'both+ansi':
+        elif kind == 'std+file+colored-file':
             return [std, fl_ansi, fl]
         else:
-            assert kind == 'file+ansi'
+            assert kind == 'file+colored-file'
             return [fl_ansi, fl]
     else:  # base cases
         if kind == 'stdout':
             handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
         else:
-            assert kind in ['file', 'file-w/-ansi']
+            assert kind in ['file', 'colored-file']
             if not file_path:
-                raise ValueError(f'{s.i(file_path)} must be specified for {s.i("file")} logging')
+                raise ValueError(f'{style(file_path)} must be specified for {style("file")} logging')
 
             dnm = os.path.dirname(file_path)
             if dnm and not os.path.exists(dnm):
@@ -467,7 +473,7 @@ def drop_file_handler(logger: logging.Logger = None):
             logger.removeHandler(h)
             rmv.append(h)
     if len(rmv) > 0:
-        logger.info(f'Handlers {s.i(rmv)} removed')
+        logger.info(f'Handlers {style(rmv)} removed')
     return logger
 
 
@@ -488,7 +494,7 @@ def add_log_handler(logger: logging.Logger = None, level: Dict[str, LogLevel] = 
 
 
 def add_file_handler(logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
-    assert kind in ['file', 'file-w/-ansi', 'file+ansi'], f'Handler kind {s.i(kind)} not recognized'
+    assert kind in _file_logging_kinds, f'Handler kind {style(kind)} not recognized'
     return add_log_handler(logger, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers)
 
 
@@ -503,8 +509,8 @@ def get_logger(
         If dict, expect the corresponding level for each handler kind (one of `stdout`, `file`).
     :param file_path: the file path for file logging.
     """
-    assert kind in ['stdout', 'file-write', 'both', 'both+ansi'], f'Logger kind {s.i(kind)} not recognized'
-    logger = logging.getLogger(f'{name} file' if kind == 'file-write' else name)
+    assert kind in _logging_kinds, f'Logger kind [{kind}] not recognized'
+    logger = logging.getLogger(name)
     logger.handlers = []  # A crude way to remove prior handlers in case of conflict w/ later added handlers
 
     need_detailed_filtering = False
@@ -554,25 +560,25 @@ class CheckArg:
         if self.ignore_none and val is None:
             if self.verbose:
                 if attribute_name:
-                    nm = f'{s.i(display_name)}::{s.i(attribute_name)}'
+                    nm = f'{style(display_name)}::{style(attribute_name)}'
                 else:
-                    nm = s.i(display_name)
-                CheckArg.logger.warning(f'Argument {nm} is {s.i("None")} and ignored')
+                    nm = style(display_name)
+                CheckArg.logger.warning(f'Argument {nm} is {style("None")} and ignored')
             return True
         if self.verbose:
             d_log = dict(val=val, accepted_values=options)
-            CheckArg.logger.info(f'Checking {s.i(display_name)} w/ {s.i(d_log)}... ')
+            CheckArg.logger.info(f'Checking {style(display_name)} w/ {style(d_log)}... ')
         if val not in options:
             if silent:
                 return False
             else:
-                raise ValueError(f'Unexpected {s.i(display_name)}: expect one of {s.i(options)}, got {s.i(val)}')
+                raise ValueError(f'Unexpected {style(display_name)}: expect one of {style(options)}, got {style(val)}')
         else:
             return True
 
     def cache_options(self, display_name: str, attr_name: str, options: List[str]):
         if attr_name in self.d_name2func:
-            raise ValueError(f'Attribute name {s.i(attr_name)} already exists')
+            raise ValueError(f'Attribute name {style(attr_name)} already exists')
         self.d_name2func[attr_name] = lambda x: self.assert_options(display_name, x, options, attr_name)
         # set a custom attribute for `attr_name` as the list of options
         setattr(self, attr_name, options)
@@ -614,10 +620,10 @@ if __name__ == '__main__':
             add_file_handler(logger, file_path=fnm, kind=kd)
 
         d_log = dict(a=1, b=2, c='test')
-        logger.info(s.i(d_log))
-        logger.info(s.i(d_log, indent=True))
-        logger.info(s.i(d_log, indent=True, indent_str=' ' * 4))
-        logger.info(s.i(d_log, indent=True, indent_str='\t'))
+        logger.info(style(d_log))
+        logger.info(style(d_log, indent=True))
+        logger.info(style(d_log, indent=True, indent_str=' ' * 4))
+        logger.info(style(d_log, indent=True, indent_str='\t'))
         logger.info('only to file', extra=dict(block='stdout'))
     # check_both_handler()
 
@@ -679,7 +685,7 @@ if __name__ == '__main__':
     # check_rich_log()
 
     def check_filter_ansi():
-        txt = s.i('hello')
+        txt = style('hello')
         print(txt)
         print(filter_ansi(txt))
     # check_filter_ansi()
@@ -695,7 +701,7 @@ if __name__ == '__main__':
 
     def check_diff_log_level():
         path = 'test-diff-log-level.log'
-        lg = get_logger('test', kind='both+ansi', level=dict(stdout='warning', file='debug'), file_path=path)
+        lg = get_logger('test', kind='std+file+colored-file', level=dict(stdout='warning', file='debug'), file_path=path)
         lg.debug('debug')
         lg.info('info')
         lg.warning('warning')

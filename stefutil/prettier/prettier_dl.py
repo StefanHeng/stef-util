@@ -8,7 +8,7 @@ from collections.abc import Sized
 
 from tqdm.auto import tqdm
 
-from stefutil.prettier.prettier_debug import style as s
+from stefutil.prettier.prettier_debug import style
 from stefutil.prettier.prettier_log import check_arg as ca
 from stefutil.packaging import _use_dl
 
@@ -78,7 +78,7 @@ class MlPrettier:
                 fmt = f'%{len_lim + 4}.3f'
                 s_val = fmt % val
             if self.with_color:
-                return f'{s.i(s_val)}/{s.i(lim)}'
+                return f'{style(s_val)}/{style(lim)}'
             else:
                 return f'{s_val}/{lim}'  # Pad integer
         elif 'loss' in key:
@@ -287,13 +287,13 @@ if _use_dl():
                 else:
                     pbar = MyProgressCallback.get_current_progress_bar(self.trainer)
                 if pbar and add_pbar_postfix:
-                    tqdm_kws = {k: s.i(v) for k, v in d_log_p.items() if self._should_add(k)}
+                    tqdm_kws = {k: style(v) for k, v in d_log_p.items() if self._should_add(k)}
                     pbar.set_postfix(tqdm_kws)
             if to_console and self.logger:
                 d = d_log_p if self.prettier_console else d_log
                 if self.console_with_split and split_str:
                     d = self.prettier.add_split_prefix(d, split=split_str)
-                msg = s.i(d)
+                msg = style(d)
                 if prefix:
                     msg = f'{prefix}{msg}'
 
@@ -303,7 +303,7 @@ if _use_dl():
                 self.logger.info(msg, extra=extra)
 
             if to_file:
-                msg = s.nc(d_log)
+                msg = style.nc(d_log)
                 if prefix:
                     msg = f'{prefix}{msg}'
 
@@ -316,7 +316,7 @@ if _use_dl():
 
 
 if __name__ == '__main__':
-    from stefutil.prettier import sic
+    from stefutil.prettier import icecream as sic
 
     def check_prettier():
         mp = MlPrettier(ref=dict(epoch=3, step=3, global_step=9))

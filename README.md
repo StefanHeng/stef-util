@@ -85,7 +85,7 @@ ls = LogStep(trainer=trainer, prettier=prettier, logger=logger, file_logger=file
 # During each training/eval step
 for step in training_or_eval_steps:
     logs = prettier(logs)
-    logger.info(s.i(logs))
+    logger.info(style(logs))
     file_logger.info(s.nc(logs))
 ```
 

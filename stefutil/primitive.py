@@ -6,13 +6,21 @@ import re
 import math
 from typing import List, Any, Union
 
-__all__ = ['nan', 'float_is_sci', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices']
+__all__ = [
+    'nan',
+    'is_int', 'float_is_sci', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices'
+]
 
 
 nan = float('nan')
 
 
-def is_int(x: Any) -> bool:
+def is_int(x: Any, allow_str: bool = False) -> bool:
+    if allow_str and isinstance(x, str):
+        try:
+            x = int(x)
+        except ValueError:
+            return False
     return isinstance(x, int) or (isinstance(x, float) and x.is_integer())
 
 
@@ -50,3 +58,20 @@ def clean_whitespace(s: str):
 def get_substr_indices(s: str, s_sub: str) -> List[int]:
     s_sub = re.escape(s_sub)
     return [m.start() for m in re.finditer(s_sub, s)]
+
+
+if __name__ == '__main__':
+    def check_int():
+        print(is_int(1))
+        print(is_int(1.0))
+        print(is_int(1.1))
+        print(is_int('1'))
+        print(is_int('1.0'))
+        print(is_int('1.1'))
+        print(is_int('1.1', allow_str=True))
+        print(is_int('1.0', allow_str=True))
+        print(is_int('1', allow_str=True))
+        print(is_int('1.1', allow_str=False))
+        print(is_int('1.0', allow_str=False))
+        print(is_int('1', allow_str=False))
+    check_int()

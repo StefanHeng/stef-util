@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.43.5'
+VERSION = '0.43.6'
 DESCRIPTION = 'Machine Learning project startup utilities'
 LONG_DESCRIPTION = 'My commonly used utilities for machine learning projects'
 
@@ -13,7 +13,7 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     url='https://github.com/StefanHeng/stef-util',
-    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.43.5.tar.gz',
+    download_url='https://github.com/StefanHeng/stef-util/archive/refs/tags/v0.43.6.tar.gz',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -28,7 +28,7 @@ setup(
         'plot-optional': ['seaborn'],
         'machine_learning': ['scikit-learn'],
         'deep_learning': ['spacy', 'torch', 'transformers>=4.33.2', 'sentence-transformers', 'tensorboard'],
-        'optional': ['pygments', 'pyinstrument']
+        'optional': ['pygments', 'pyinstrument', 'sty']
     },
     keywords=[
         'python',

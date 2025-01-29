@@ -47,8 +47,8 @@ if _use_plot():
         ]))
         if 'seaborn' in installed_packages():
             import seaborn as sns
-            sns.set_style('darkgrid')
-            sns.set_context(rc={'grid.linewidth': 0.5})
+            snstyleet_style('darkgrid')
+            snstyleet_context(rc={'grid.linewidth': 0.5})
 
     LN_KWARGS = dict(marker='o', ms=0.3, lw=0.25)  # matplotlib line plot default args
 
@@ -219,11 +219,11 @@ if _use_plot():
 
             logger = logger or _logger
             if verbose:
-                logger.info(f'Running TSNE on {s.i(len(vects))} vectors w/ args {s.i(tsne_args_)}')
+                logger.info(f'Running TSNE on {style(len(vects))} vectors w/ args {style(tsne_args_)}')
             t = Timer()
             vects_reduced = TSNE(**tsne_args_).fit_transform(vects)
             if verbose:
-                logger.info(f'TSNE finished in {s.i(t.end())}')
+                logger.info(f'TSNE finished in {style(t.end())}')
 
             setups = sum([[nm] * len(v) for nm, v in name2vectors.items()], start=[])
             df = pd.DataFrame({'x': vects_reduced[:, 0], 'y': vects_reduced[:, 1], key_name: setups})
@@ -235,11 +235,11 @@ if _use_plot():
             sct_args.update(scatter_kwargs or dict())
 
             if verbose:
-                logger.info(f'Plotting embedded 2D points w/ args {s.i(sct_args, indent=1)}')
+                logger.info(f'Plotting embedded 2D points w/ args {style(sct_args, indent=1)}')
             t = Timer()
-            ax = sns.scatterplot(data=df, x='x', y='y', **sct_args)
+            ax = snstylecatterplot(data=df, x='x', y='y', **sct_args)
             if verbose:
-                logger.info(f'Scatterplot finished in {s.i(t.end())}')
+                logger.info(f'Scatterplot finished in {style(t.end())}')
 
             if ellipse:
                 for nm, c in zip(name2vectors.keys(), cs):

@@ -176,7 +176,7 @@ class Timer:
 
 
 if __name__ == '__main__':
-    from stefutil.prettier.prettier_debug import s, sic
+    from stefutil.prettier.prettier_debug import style, icecream as sic
 
     def check_time_delta():
         import datetime
@@ -201,16 +201,6 @@ if __name__ == '__main__':
         sic(f'{sec:.{n}f}s')
     # check_time_delta_digits()
 
-    def check_float_pad():
-        d = dict(ratio=0.95)
-        print(s.i(d))
-        print(s.i(d, pad_float=False))
-        print(s.pa(d))
-        print(s.pa(d, pad_float=False))
-
-        sic(s.pa(d, pad_float=False))
-    # check_float_pad()
-
     def check_ordinal():
         sic([ordinal(n) for n in range(1, 32)])
     # check_ordinal()
@@ -228,7 +218,7 @@ if __name__ == '__main__':
         # print(s.i(d))
         d = dict(g='5', h='4.2', i='world', j='3.7%')
         # print(s.i(d))
-        print(s.i(d, quote_str=True, bold=False))
+        print(style(d, quote_str=True, bold=False))
     # check_style_diff_objects()
 
     def check_timer():

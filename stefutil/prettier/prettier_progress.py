@@ -11,7 +11,7 @@ from tqdm.std import TqdmWarning
 from tqdm.utils import FormatReplace, disp_len, disp_trim
 
 from stefutil.os import rel_path
-from stefutil.prettier.prettier_debug import style as s, rich_console
+from stefutil.prettier.prettier_debug import style, rich_console
 
 
 __all__ = [
@@ -36,7 +36,7 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
         self.reader: _I = reader
 
     def __enter__(self) -> _I:
-        self.progress.start()
+        self.progresstyletart()
         return self.reader.__enter__()
 
     def __exit__(
@@ -45,7 +45,7 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
-        self.progress.stop()
+        self.progresstyletop()
         self.reader.__exit__(exc_type, exc_val, exc_tb)
 
 
@@ -54,7 +54,7 @@ def rich_open(
     file: Union[str, "PathLike[str]", bytes],
     mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r"
 ) -> Union[ContextManager[BinaryIO], ContextManager[TextIO]]:
-    desc = f'Reading file {s.i(rel_path(file), backend="rich-markup")}'
+    desc = f'Reading file {style(rel_path(file), backend="rich-markup")}'
     progress = rich_progress(return_progress=True, desc=desc, for_file=True)
 
     reader = progress.open(
@@ -220,7 +220,7 @@ def rich_progress(
             if isinstance(field_widths, int):
                 field_widths = [field_widths] * len(fields)
             elif len(field_widths) != len(fields):
-                raise ValueError(f'Length of {s.i("field_widths")} must match {s.i("fields")}')
+                raise ValueError(f'Length of {style("field_widths")} must match {style("fields")}')
         else:
             field_widths = [4] * len(fields)
 
@@ -354,11 +354,11 @@ class CBar(object):
             # instead of empty space, use a grey dashed line; style is just like the default for `rich.progress.Progress`
             if charset[0] != ' ':
                 raise NotImplementedError
-            res = res + charset[frac_bar_length] + s.nb('━' * (N_BARS - bar_length - 1), fg='grey23')
+            res = res + charset[frac_bar_length] + style.nb('━' * (N_BARS - bar_length - 1), fg='grey23')
             # ======================================= End of modified =======================================
         # ======================================= Begin of modified =======================================
         # return self.colour + res + self.COLOUR_RESET if self.colour else res
-        return s.i(res, fg=self.colour, bold=False) if self.colour else res
+        return style(res, fg=self.colour, bold=False) if self.colour else res
         # ======================================= End of modified =======================================
 
 
@@ -394,11 +394,11 @@ def _is_ascii(s):
 
 
 def _style_interval(x: int, pad: bool = False) -> str:
-    return s.i(x, bold=False, fg='g', pad='02' if pad else None)
+    return style(x, bold=False, fg='g', pad='02' if pad else None)
 
 
 def _style_rate(x: float) -> str:
-    return s.i(x, bold=False, fg='c', pad='4.2f')
+    return style(x, bold=False, fg='c', pad='4.2f')
 
 
 class tqdc(tqdm):
@@ -465,8 +465,8 @@ class tqdc(tqdm):
             n_fmt = str(n)
             total_fmt = str(total) if total is not None else '?'
         # ======================================= Begin of added =======================================
-        n_fmt = s.i(n_fmt, bold=False, fg='c')
-        total_fmt = s.i(total_fmt, bold=False, fg='c')
+        n_fmt = style(n_fmt, bold=False, fg='c')
+        total_fmt = style(total_fmt, bold=False, fg='c')
         # ======================================= End of added =======================================
 
         try:
@@ -666,7 +666,7 @@ if __name__ == '__main__':
     def check_rich_backend_colors():
         txt = 'hello'
         for c in ['magenta', 'dodger_blue2', 'dark_red']:
-            print(c + s.i(txt, fg=c))
+            print(c + style(txt, fg=c))
     # check_rich_backend_colors()
 
     def check_nested_rich_pbar():

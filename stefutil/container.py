@@ -7,7 +7,8 @@ from typing import Tuple, List, Dict, Iterable, Callable, TypeVar, Any, Union
 from functools import reduce
 from collections import OrderedDict
 
-from stefutil.prettier import style as s
+from stefutil.primitive import is_int
+from stefutil.prettier import style
 from stefutil.packaging import _use_dl
 
 
@@ -26,31 +27,68 @@ T = TypeVar('T')
 K = TypeVar('K')
 
 
-def get(dic: Dict, ks: str = None):
+Key = Union[int, str]
+
+
+def _num_key2int(key: str = None, container: Union[dict, list, Any] = None) -> Key:
     """
-    :param dic: Potentially multi-level dictionary
+    optionally converts a number key into int if
+    1> the key indices into a list or
+    2> the int version of the key exists in dict but not the str version
+    """
+    if is_int(key, allow_str=True):
+        if isinstance(container, list):
+            return int(key)
+        elif isinstance(container, dict) and key not in container and int(key) in container:
+            return int(key)
+
+    return key
+
+
+def _log_key_error(key: Key = None, container: Union[dict, list, Any] = None, past_keys: List[Key] = None):
+    _past_keys = style.nc('=>', fg='m').join([style.nc(k) for k in past_keys])
+    if isinstance(container, dict):
+        available_ks = list(container.keys())
+    else:
+        assert isinstance(container, list)
+        available_ks = f'[0,{len(container)-1}]'
+    d_log = {'past keys': _past_keys, 'available keys': available_ks}
+    raise ValueError(f'{style.nc(key)} not found at level {style.nc(len(past_keys)+1)} with {style.nc(d_log)}')
+
+
+def get(container: Union[dict, list], ks: str = None):
+    """
+    :param container: Potentially multi-level dictionary/list
     :param ks: Potentially `.`-separated keys
     """
     if ks is None or ks in ['', '.']:
-        return dic
+        return container
     else:
         ks = ks.split('.')
         _past_keys = []
-        acc = dic
+        acc = container
         for lvl, k in enumerate(ks):
-            if k not in acc:
-                _past_keys = s.s('=>', fg='m').join([s.i(k) for k in _past_keys])
-                d_log = {'past keys': _past_keys, 'available keys': list(acc.keys())}
-                raise ValueError(f'{s.i(k)} not found at level {s.i(lvl + 1)} with {s.i(d_log)}')
+            k = _num_key2int(key=k, container=acc)
+
+            if (isinstance(acc, list) and not (is_int(k) and 0 <= k < len(acc))) or \
+                    (isinstance(acc, dict) and k not in acc):
+                _log_key_error(key=k, container=acc, past_keys=_past_keys)
             acc = acc[k]
             _past_keys.append(k)
         return acc
 
 
-def set_(dic, ks, val):
+def set_(container: Union[dict, list], ks: str = None, val: Any = None):
+    def fn(acc, k):
+        k = _num_key2int(key=k, container=acc)
+        return acc[k]
+
     ks = ks.split('.')
-    node = reduce(lambda acc, elm: acc[elm], ks[:-1], dic)
-    node[ks[-1]] = val
+    # node = reduce(lambda acc, elm: acc[elm], ks[:-1], dic)
+    node = reduce(fn, ks[:-1], container)
+
+    k_ = _num_key2int(key=ks[-1], container=node)
+    node[k_] = val
 
 
 def it_keys(dic, prefix=''):
@@ -216,6 +254,28 @@ if __name__ == '__main__':
         ic(get(d, 'a.b.e'))  # will raise error
     # check_get()
 
+    def check_get_int():
+        d = {'a': {1: 2}, 1: 3}
+        ic(d)
+        ic(get(d, 'a.1'))
+
+        d = {'a': ['b', 'c', {'d': 'e'}]}
+        ic(d)
+        ic(get(d, 'a.2.d'))
+    # check_get_int()
+
+    def check_set_int():
+        d = {'a': {1: 2}, 'b': {1: 3}}
+        ic(d)
+        set_(d, 'b.1', 4)
+        ic(d)
+
+        d = {'a': ['b', 'c', {'d': 'e'}]}
+        ic(d)
+        set_(d, 'a.2.d', 'f')
+        ic(d)
+    check_set_int()
+
     def check_split_n():
         def _test(n_it: int = None, n: int = None):
             ret = list(split_n(range(n_it), n))
@@ -231,4 +291,4 @@ if __name__ == '__main__':
     def check_desc():
         lst = [1, 2, 3]
         ic(describe(lst))
-    check_desc()
+    # check_desc()
