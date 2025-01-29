@@ -451,14 +451,14 @@ def get_logging_handler(
             if dnm and not os.path.exists(dnm):
                 os.makedirs(dnm, exist_ok=True)
 
-            # i.e., when `file-w/-ansi`, use the default file handler - no filter out for the ANSI chars
+            # i.e., when `colored-file`, use the default file handler - no filter out for the ANSI chars
             cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
             handler = cls(file_path, mode=file_mode)
         if isinstance(level, dict):
             level = level['stdout' if kind == 'stdout' else 'file']
         if level:
             set_level(handler, level=level)
-        handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'file-w/-ansi']))
+        handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'colored-file']))
         handler.addFilter(HandlerFilter(handler_name=kind))
         return handler
 
