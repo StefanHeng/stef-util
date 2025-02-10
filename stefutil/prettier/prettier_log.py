@@ -273,7 +273,7 @@ class MyFormatter(logging.Formatter):
                     assert _DEFAULT_ANSI_BACKEND == 'colorama'
                     return color_time + self.fmt_meta(*args_) + f'{c_sep}: {reset}{MyFormatter.KW_MSG}' + reset
             else:
-                return f'{MyFormatter.KW_TIME}|{self.fmt_meta(*args_)}:{MyFormatter.KW_MSG}'
+                return f'{MyFormatter.KW_TIME}|{self.fmt_meta(*args_)}: {MyFormatter.KW_MSG}'
 
         self.formats = {level: args2fmt(args) for level, args in MyFormatter.LVL_MAP.items()}
         self.formatter = {
@@ -297,7 +297,7 @@ class MyFormatter(logging.Formatter):
                         f'{MyFormatter.blue}:{meta_style}{meta_abv}{MyFormatter.RESET}')
         else:
             return f'[{MyFormatter.KW_NAME}] {MyFormatter.KW_FUNC_NM}::{MyFormatter.KW_FNM}' \
-                   f':{MyFormatter.KW_LINENO}, {meta_abv}'
+                   f':{MyFormatter.KW_LINENO}:{meta_abv}'
 
     def format(self, entry):
         return self.formatter[entry.levelno].format(entry)

@@ -35,7 +35,7 @@ def stem(
                 dirs.append(path.name)
             dirs.reverse()
         else:
-            dirs = path.split(ostyleep)
+            dirs = path.split(os.sep)
             dirs = dirs[-top_n-1:-1]
         dirs += [ret]
         return dirs if as_list else os_join(*dirs)
