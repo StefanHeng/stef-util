@@ -375,7 +375,7 @@ def _level2int_level(level: LogLevel) -> int:
         return level
 
 
-def set_level(logger_or_handler: Union[logging.Logger, logging.Handler] = None, level: LogLevel = None):
+def set_logger_handler_level(logger_or_handler: Union[logging.Logger, logging.Handler] = None, level: LogLevel = None):
     """
     Set logging level for the logger
     """
@@ -460,7 +460,7 @@ def get_logging_handler(
         if isinstance(level, dict):
             level = level['stdout' if kind == 'stdout' else 'file']
         if level:
-            set_level(handler, level=level)
+            set_logger_handler_level(handler, level=level)
         handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'colored-file']))
         handler.addFilter(HandlerFilter(handler_name=kind))
         return handler
@@ -509,10 +509,10 @@ def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = 
 
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
-            handler.setLevel(handler_kd2level['stdout'])
+            set_logger_handler_level(logger_or_handler=handler, level=handler_kd2level['stdout'])
 
         elif isinstance(handler, logging.FileHandler):
-            handler.setLevel(handler_kd2level['file'])
+            set_logger_handler_level(logger_or_handler=handler, level=handler_kd2level['file'])
 
         else:
             raise ValueError(f'Handler {handler} type not recognized')
@@ -544,7 +544,7 @@ def get_logger(
         min_level = min(_level2int_level(lvl) for lvl in level.values())
     else:
         min_level = level
-    set_level(logger, level=min_level)
+    set_logger_handler_level(logger, level=min_level)
 
     add_log_handler(logger, level=level if need_detailed_filtering else None, file_path=file_path, kind=kind)
     logger.propagate = False
