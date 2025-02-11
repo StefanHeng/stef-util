@@ -13,7 +13,8 @@ from stefutil.prettier.prettier_debug import style, _DEFAULT_ANSI_BACKEND, _ANSI
 __all__ = [
     'MyTheme', 'MyFormatter',
     'filter_ansi', 'CleanAnsiFileHandler', 'AnsiFileMap',
-    'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger', 'add_log_handler', 'add_file_handler', 'drop_file_handler',
+    'LOG_STR2LOG_LEVEL', 'get_logging_handler', 'get_logger',
+    'add_log_handler', 'add_file_handler', 'drop_file_handler', 'set_logger_handler_levels',
 
     'CheckArg', 'check_arg',
 
@@ -362,6 +363,8 @@ LOG_STR2LOG_LEVEL = {
 
 
 LogLevel = Union[str, int]
+Kind2LogLevel = Dict[str, LogLevel]
+LogLevels = Union[LogLevel, Kind2LogLevel]
 
 
 def _level2int_level(level: LogLevel) -> int:
@@ -372,7 +375,7 @@ def _level2int_level(level: LogLevel) -> int:
         return level
 
 
-def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Union[str, int] = None):
+def set_level(logger_or_handler: Union[logging.Logger, logging.Handler] = None, level: LogLevel = None):
     """
     Set logging level for the logger
     """
@@ -380,7 +383,7 @@ def set_level(logger: Union[logging.Logger, logging.Handler] = None, level: Unio
         level = LOG_STR2LOG_LEVEL[level.lower()]
     else:
         assert isinstance(level, int)
-    logger.setLevel(level)
+    logger_or_handler.setLevel(level)
 
 
 class AnsiFileMap:
@@ -405,7 +408,7 @@ _logging_kinds = list(dict.fromkeys(_logging_kinds))  # remove duplicates
 
 
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str = None, level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_mode: str = 'a',
+        kind: str = 'stdout', file_path: str = None, level: LogLevels = 'debug', file_mode: str = 'a',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
@@ -477,7 +480,7 @@ def drop_file_handler(logger: logging.Logger = None):
     return logger
 
 
-def add_log_handler(logger: logging.Logger = None, level: Dict[str, LogLevel] = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+def add_log_handler(logger: logging.Logger = None, level: LogLevels = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
     """
     Adds handler(s) to the logger
     """
@@ -493,9 +496,26 @@ def add_log_handler(logger: logging.Logger = None, level: Dict[str, LogLevel] = 
     return logger
 
 
-def add_file_handler(logger: logging.Logger = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+def add_file_handler(logger: logging.Logger = None, level: LogLevels = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
     assert kind in _file_logging_kinds, f'Handler kind {style(kind)} not recognized'
-    return add_log_handler(logger, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers)
+    return add_log_handler(logger=logger, level=level, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers)
+
+
+def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = None):
+    if isinstance(level, dict):
+        handler_kd2level = level
+    else:
+        handler_kd2level = dict(stdout=level, file=level)
+
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            handler.setLevel(handler_kd2level['stdout'])
+
+        elif isinstance(handler, logging.FileHandler):
+            handler.setLevel(handler_kd2level['file'])
+
+        else:
+            raise ValueError(f'Handler {handler} type not recognized')
 
 
 def get_logger(
