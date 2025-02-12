@@ -506,13 +506,17 @@ def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = 
         handler_kd2level = level
     else:
         handler_kd2level = dict(stdout=level, file=level)
+    assert set(level.keys()) == {'stdout', 'file'}  # sanity check
+    min_level = min(_level2int_level(lvl) for lvl in level.values())
+    set_logger_handler_level(logger, level=min_level)
 
     for handler in logger.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            set_logger_handler_level(logger_or_handler=handler, level=handler_kd2level['stdout'])
-
-        elif isinstance(handler, logging.FileHandler):
+        # note the condition ordering matters here, for `FileHandler` is a subclass of `StreamHandler`
+        if isinstance(handler, logging.FileHandler):
             set_logger_handler_level(logger_or_handler=handler, level=handler_kd2level['file'])
+
+        elif isinstance(handler, logging.StreamHandler):
+            set_logger_handler_level(logger_or_handler=handler, level=handler_kd2level['stdout'])
 
         else:
             raise ValueError(f'Handler {handler} type not recognized')
@@ -722,6 +726,16 @@ if __name__ == '__main__':
     def check_diff_log_level():
         path = 'test-diff-log-level.log'
         lg = get_logger('test', kind='std+file+colored-file', level=dict(stdout='warning', file='debug'), file_path=path)
+        lg.debug('debug')
+        lg.info('info')
+        lg.warning('warning')
+        lg.error('error')
+        lg.critical('critical')
+
+        path = 'test-diff-log-level-start-std.log'
+        lg = get_logger('test-start-std')
+        add_file_handler(logger=lg, file_path=path, kind='file+colored-file')
+        set_logger_handler_levels(logger=lg, level=dict(stdout='INFO', file='DEBUG'))
         lg.debug('debug')
         lg.info('info')
         lg.warning('warning')
