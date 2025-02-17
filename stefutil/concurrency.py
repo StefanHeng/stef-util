@@ -6,7 +6,9 @@ intended for (potentially heavy) data processing
 
 
 import os
+import math
 import heapq
+import operator
 import concurrent.futures
 from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
 
@@ -15,7 +17,7 @@ from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
 
 from stefutil.container import group_n
-from stefutil.prettier import check_arg as ca
+from stefutil.prettier import check_arg as ca, tqdc
 
 
 __all__ = ['conc_map', 'batched_conc_map', 'conc_yield']
@@ -30,6 +32,14 @@ BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 def _check_conc_mode(mode: str):
     ca.assert_options('Concurrency Mode', mode, ['thread', 'process'])
+
+
+def _get_length(it: Iterable[T]) -> int:
+    try:
+        return len(it)  # Try to get the exact length
+    except TypeError:
+        # If obj doesn't support len(), try to get an estimated length
+        return operator.length_hint(it, default=0)
 
 
 def conc_map(
@@ -184,7 +194,7 @@ class BatchedFn:
 
 
 def conc_yield(
-        fn: MapFn, args: Iterable[T], fn_kwarg: str = None, with_tqdm: Union[bool, Dict] = False,
+        fn: MapFn, args: Iterable[T], fn_kwarg: str = None, with_tqdm: Union[bool, Dict] = False, tqdm_class: std_tqdm = None,
         n_worker: int = os.cpu_count()-1,  # since the calling script consumes one process
         mode: str = 'process', batch_size: Union[int, bool] = None,
         process_chunk_size: int = None, process_chunk_multiplier: int = None, enforce_order: bool = False
@@ -199,6 +209,8 @@ def conc_yield(
     :param with_tqdm: If true, progress bar is shown
         If dict, treated as `tqdm` concurrent kwargs
             note `chunksize` is helpful
+    :param tqdm_class: If given, use this tqdm class for the progress bar
+        Defaults to the colored version
     :param n_worker: Number of concurrent workers
     :param mode: One of ['thread', 'process']
         Function has to be pickleable if 'process'
@@ -220,8 +232,19 @@ def conc_yield(
 
     pbar = None
     if with_tqdm:
-        tqdm_args = (isinstance(with_tqdm, dict) and with_tqdm) or dict()
-        pbar = tqdm(**tqdm_args)
+        if not isinstance(pbar, std_tqdm):
+            n = _get_length(args)
+            if n:
+                if batch_size:
+                    n = math.ceil(n / batch_size)
+            else:
+                n = None
+            tqdm_args = dict(total=n)
+
+            if isinstance(with_tqdm, dict):
+                tqdm_args.update(with_tqdm)
+            tqdm_class = tqdm_class or tqdc
+            pbar = tqdm_class(**tqdm_args)
 
     if batch_size:
         batch_size = 32 if isinstance(batch_size, bool) else batch_size
@@ -317,9 +340,9 @@ def conc_yield(
             del futures[f]
 
 
-# DEV = True
-DEV = False
-if DEV:
+if __name__ == '__main__':
+    from stefutil.prettier import rich_progress, rich_console_log
+
     import time
     import random
 
@@ -335,7 +358,6 @@ if DEV:
         print(f'Task {style(task_idx)} is done')
         return task_idx
 
-
     def _dummy_fn(xx: int = None):
         x = xx
         t_ms = random.randint(500, 3000)
@@ -344,10 +366,6 @@ if DEV:
         time.sleep(t_ms / 1000)
 
         return x, [random.random() for _ in range(int(1e6))]
-
-
-if __name__ == '__main__':
-    from stefutil.prettier import rich_progress, rich_console_log
 
     def try_concurrent_yield():
         # this will gather all results and return
@@ -383,16 +401,17 @@ if __name__ == '__main__':
             n = 10
 
         it = range(n)
-        with_tqdm = dict(total=n)
+        # with_tqdm = dict(total=n)
+        with_tqdm = True
         n_worker = 4
 
-        mode = 'process'
-        # mode = 'thread'
+        # mode = 'process'
+        mode = 'thread'
         for res in conc_yield(fn=_work, args=it, with_tqdm=with_tqdm, n_worker=n_worker, mode=mode, batch_size=bsz):
             sic(res)
-    # check_conc_yield()
+    check_conc_yield()
 
-    def test_conc_mem_use():
+    def check_conc_mem_use():
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         n = 30
@@ -416,7 +435,7 @@ if __name__ == '__main__':
             for i in conc_yield(fn=_dummy_fn, args=range(n), **args):
                 i, _ = i
                 logger.info(f'Process {style(i)} terminated')
-    # test_conc_mem_use()
+    # check_conc_mem_use()
 
     def check_conc_process_chunk():
         # n = 200
@@ -439,4 +458,4 @@ if __name__ == '__main__':
             # logger.info(f'Process {s.i(i)} terminated')
             lst.append(i)
         rich_console_log(lst)
-    check_conc_process_chunk()
+    # check_conc_process_chunk()
