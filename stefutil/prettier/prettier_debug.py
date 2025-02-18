@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from icecream import IceCreamDebugger
 from rich.console import Console
 
-from stefutil.primitive import is_float, float_is_sci
+from stefutil.primitive import is_float, float_is_sci, is_number
 from stefutil.prettier import enclose_in_quote
 
 
@@ -395,7 +395,7 @@ class Styler:
         else:
             if is_float(x=x):  # handles the case where `x` is a string representation of a float
                 tp = float
-            elif isinstance(x, str) and len(x) > 0 and x[-1] == '%' and is_float(x[:-1]):
+            elif is_number(x=x):
                 tp = float
             elif isinstance(x, Path) \
                     or (isinstance(x, str) and (os.path.exists(x) or len(x) < 256 and x.count(os.sep) >= 2)):  # heuristics to check for path
@@ -1013,7 +1013,7 @@ if __name__ == '__main__':
         print(s(l, indent=-1))
         print(s(l, indent=-2))
         print(s(l, indent=-3))
-    check_backward_indent()
+    # check_backward_indent()
 
     def check_float_pad():
         d = dict(ratio=0.95)
@@ -1023,4 +1023,9 @@ if __name__ == '__main__':
         print(style.pa(d, pad_float=False))
 
         sic(style.pa(d, pad_float=False))
-    check_float_pad()
+    # check_float_pad()
+
+    def check_log_num():
+        d = dict(a='1%', b='3K', c='10th', d='1st', e='hello')
+        print(style(d))
+    check_log_num()

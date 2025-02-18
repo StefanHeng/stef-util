@@ -39,7 +39,7 @@ def _get_length(it: Iterable[T]) -> int:
         return len(it)  # Try to get the exact length
     except TypeError:
         # If obj doesn't support len(), try to get an estimated length
-        return operator.length_hint(it, default=0)
+        return operator.length_hint(it, 0)
 
 
 def conc_map(
@@ -400,9 +400,10 @@ if __name__ == '__main__':
             bsz = None
             n = 10
 
-        it = range(n)
-        # with_tqdm = dict(total=n)
-        with_tqdm = True
+        # it = range(n)
+        it = enumerate(range(n))
+        with_tqdm = dict(total=n)
+        # with_tqdm = True
         n_worker = 4
 
         # mode = 'process'

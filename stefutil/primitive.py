@@ -8,7 +8,8 @@ from typing import List, Any, Union
 
 __all__ = [
     'nan',
-    'is_int', 'float_is_sci', 'is_float', 'float_is_int', 'clean_whitespace', 'get_substr_indices'
+    'is_int', 'float_is_sci', 'is_float', 'float_is_int', 'is_number',
+    'clean_whitespace', 'get_substr_indices'
 ]
 
 
@@ -49,6 +50,27 @@ def float_is_int(f: float, eps: float = None) -> Union[int, bool]:
         return f.is_integer()
 
 
+# common postfixes that consider as a number
+postfix_percent = ['%']
+postfix_ordinal = ['th', 'st', 'nd', 'rd']
+postfix_large_int = ['K', 'M', 'G', 'T', 'P', 'E', 'Z']
+postfix_large_int += [f'{x}i' for x in postfix_large_int]
+postfixes = postfix_percent + postfix_ordinal + postfix_large_int
+
+
+def is_number(x: Any, allow_postfix: bool = True) -> bool:
+    # intended for proper log styling
+    if is_int(x):
+        return True
+    if is_float(x):
+        return True
+    if allow_postfix and isinstance(x, str) and len(x) > 0:
+        for post in postfixes:
+            if x.endswith(post):
+                return is_number(x[:-len(post)])
+    return False
+
+
 def clean_whitespace(s: str):
     if not hasattr(clean_whitespace, 'pattern_space'):
         clean_whitespace.pattern_space = re.compile(r'\s+')
@@ -74,4 +96,15 @@ if __name__ == '__main__':
         print(is_int('1.1', allow_str=False))
         print(is_int('1.0', allow_str=False))
         print(is_int('1', allow_str=False))
-    check_int()
+    # check_int()
+
+    def check_num_postfix():
+        print(is_number('1'))
+        print(is_number('1.0'))
+        print(is_number('1.1%'))
+        print(is_number('1.1K'))
+        print(is_number('1th'))
+        print(is_number('1.1th'))
+        print(is_number('1.1Mi'))
+        print(is_number('M'))
+    check_num_postfix()
