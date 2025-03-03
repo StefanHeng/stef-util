@@ -30,15 +30,17 @@ def set_pd_style():
     pd.set_option('display.min_rows', 16)
 
 
-def fmt_num(num: Union[float, int], suffix: str = '') -> str:
+def fmt_num(num: Union[float, int], suffix: str = '', n_digit: int = 1) -> str:
     """
     Convert number to human-readable format, in e.g. Thousands, Millions
     """
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1000.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+            # return "%3.1f%s%s" % (num, unit, suffix)
+            return f"{num:.{n_digit}f}{unit}{suffix}"
         num /= 1000.0
-    return "%.1f%s%s" % (num, 'Y', suffix)
+    # return "%.1f%s%s" % (num, 'Y', suffix)
+    return f"{num:.{n_digit}f}Y{suffix}"
 
 
 def fmt_sizeof(num: int, suffix='B', stop_power: Union[int, float] = 1) -> str:
@@ -228,4 +230,12 @@ if __name__ == '__main__':
         time.sleep(1.5)
         delta = t.end(prettier=False)
         sic(delta, type(delta))
-    check_timer()
+    # check_timer()
+
+    def check_fmt_num():
+        n = 102342345
+        sic(fmt_num(n, n_digit=0))
+        sic(fmt_num(n, n_digit=1))
+        sic(fmt_num(n, n_digit=2))
+        sic(fmt_num(n, n_digit=3))
+    check_fmt_num()

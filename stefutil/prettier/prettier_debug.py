@@ -283,7 +283,7 @@ class ClickNRichStyler(AnsiStyler):
 
 Single = Union[int, float, bool, str]
 Container = Union[dict, list, tuple]
-Indent = Union[int, float, bool, str]
+Indent = Union[int, float, bool, str, Dict[str, int]]
 
 
 class Styler:
@@ -347,7 +347,8 @@ class Styler:
 
     def __call__(
             self, x: Union[Single, Container, None],
-            indent: Union[Indent, None] = None, indent_str: str = '\t', backend: str = _DEFAULT_ANSI_BACKEND,
+            indent: Union[Indent, None] = None, indent_str: str = ' ' * 4,
+            backend: str = _DEFAULT_ANSI_BACKEND,
             render_nested_style: bool = False,
             fg: str = None, bg: str = None, bold: bool = None, with_color: bool = True,
             c_time: str = None, pad: int = None,
@@ -430,8 +431,8 @@ class Styler:
     @staticmethod
     def style_container(
             x: Union[Single, Container, None], bold: bool = True,
-            indent: Union[Indent, None] = None, indent_str: str = '\t', backend: str = _DEFAULT_ANSI_BACKEND,
-            render_nested_style: bool = False, **kwargs
+            indent: Union[Indent, None] = None, indent_str: str = ' ' * 4, backend: str = _DEFAULT_ANSI_BACKEND,
+            render_nested_style: bool = False, no_indent_if_length_1: bool = True, **kwargs
     ):
         """
         style containers (dict, list, tuple) optionally with indentation
@@ -441,14 +442,19 @@ class Styler:
         :param bold: whether to bold-face the container
         :param indent: maximum indentation level.
             this will be propagated through dict and list only.
+            If True, indent all nested containers
+            If a dict, should specify the default indent via a `__default__` key and the indent for each dictionary key via the key
         :param indent_str: string for one level of indentation.
         :param render_nested_style: whether to render nested ANSI styles at the end.
             intended when the input passed in already contains local ANSI styles, see `render_nested_ansi_pairs`.
+        :param no_indent_if_length_1: If true and the container has only 1 element, indentation is skipped
         :param backend: backend package for ANSI styling
         """
         if render_nested_style:  # as a syntactic sugar; make a recursive call w/ all other params
             assert backend != 'rich-markup'  # sanity check, this is not the intended use case
-            ret = Styler.style_container(x, bold=bold, indent=indent, indent_str=indent_str, backend=backend, **kwargs)
+            ret = Styler.style_container(
+                x, bold=bold, indent=indent, indent_str=indent_str, backend=backend, no_indent_if_length_1=no_indent_if_length_1, **kwargs
+            )
             return render_nested_ansi_pairs(ret)
 
         else:
@@ -457,6 +463,10 @@ class Styler:
                     if indent != 'all':
                         raise ValueError(f'Indentation type {style(indent)} not recognized')
                     indent = float('inf')
+                if isinstance(indent, dict):
+                    assert len(indent) >= 2 and '__default__' in indent  # sanity check
+                    kwargs['indent_config'] = indent_config = indent
+                    indent = indent_config.pop('__default__')
                 elif isinstance(indent, bool):
                     assert indent is True
                     indent = float('inf')
@@ -468,7 +478,8 @@ class Styler:
                     indent = _get_container_max_depth(x) + indent
 
                 kwargs['curr_indent'], kwargs['indent_end'] = 1, indent
-                kwargs['indent_str'] = indent_str
+            kwargs['indent_str'] = indent_str
+            kwargs['no_indent_if_length_1'] = no_indent_if_length_1
             kwargs['backend'] = backend
             kwargs['bold'] = bold
 
@@ -487,7 +498,7 @@ class Styler:
                 kwargs_.update(kwargs)
                 # not needed for base case string styling
                 for k in [
-                    'curr_indent', 'indent_end', 'indent_str', 'align_keys',
+                    'curr_indent', 'indent_end', 'indent_str', 'no_indent_if_length_1', 'align_keys',
                     'for_path', 'brace_no_color', 'value_no_color', 'color_keys', 'container_sep_no_newline'
                 ]:
                     kwargs_.pop(k, None)
@@ -506,7 +517,6 @@ class Styler:
         if float_is_sci(n):
             return str(n).replace('e-0', 'e-').replace('e+0', 'e+')  # remove leading 0
         elif pad:
-            sic('in pad', n, pad)
             return f'{n:{pad}}'
         else:
             return str(n)
@@ -548,7 +558,9 @@ class Styler:
     @staticmethod
     def _iter(
             it: Iterable, with_color=True, pref: str = '[', post: str = ']', sep: str = None, for_path: bool = False,
-            curr_indent: int = None, indent_end: int = None, brace_no_color: bool = False, backend: str = _DEFAULT_ANSI_BACKEND, **kwargs
+            curr_indent: int = None, indent_end: int = None, indent_str: str = '\t', no_indent_if_length_1: bool = None,
+            brace_no_color: bool = False, backend: str = _DEFAULT_ANSI_BACKEND,
+            **kwargs
     ):
         # `kwargs` so that customization for other types can be ignored w/o error
         if with_color and not brace_no_color:
@@ -562,7 +574,9 @@ class Styler:
                     curr_idt = curr_indent + 1
             args = dict(with_color=with_color, for_path=for_path, backend=backend, brace_no_color=brace_no_color)
             if isinstance(e, (list, dict)):
-                return Styler.style_container(e, curr_indent=curr_idt, indent_end=indent_end, **args, **kwargs)
+                return Styler.style_container(
+                    e, curr_indent=curr_idt, indent_end=indent_end, indent_str=indent_str, no_indent_if_length_1=no_indent_if_length_1,
+                    **args, **kwargs)
             else:
                 return Styler.style_container(e, **args, **kwargs)
         lst = [log_elm(e) for e in it]
@@ -573,16 +587,21 @@ class Styler:
     @staticmethod
     def _list(
             lst: List, sep: str = None, for_path: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
-            container_sep_no_newline: bool = False, **kwargs
+            container_sep_no_newline: bool = False, no_indent_if_length_1: bool = None, **kwargs
     ) -> str:
-        args = dict(with_color=True, for_path=False, pref='[', post=']', curr_indent=curr_indent, indent_end=indent_end)
+        args = dict(
+            with_color=True, for_path=False, pref='[', post=']',
+            curr_indent=curr_indent, indent_end=indent_end, indent_str=indent_str, no_indent_if_length_1=no_indent_if_length_1)
         if sep is None:
             args['sep'] = ',' if for_path else ', '
         else:
             args['sep'] = sep
         args.update(kwargs)
 
-        if curr_indent is not None and len(lst) > 0:
+        need_indent = curr_indent is not None and len(lst) > 0
+        if need_indent and no_indent_if_length_1 and len(lst) == 1:
+            need_indent = None
+        if need_indent:
             indent = curr_indent
             pref, post, sep = args['pref'], args['post'], args['sep']
             out = _adjust_indentation(prefix=pref, postfix=post, sep=sep, indent_level=indent, indent_str=indent_str)
@@ -608,7 +627,8 @@ class Styler:
             with_color=True, pad_float: int = None,  # base case args
             key_value_sep: str = ': ', pairs_sep: str = ', ',  # dict specific args
             for_path: Union[bool, str] = False, pref: str = '{', post: str = '}',
-            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t',
+            omit_none_val: bool = False, curr_indent: int = None, indent_end: int = None, indent_str: str = '\t', indent_config: Dict[str, int] = None,
+            no_indent_if_length_1: bool = None,
             brace_no_color: bool = False, color_keys: bool = False, value_no_color: bool = False, align_keys: Union[bool, int] = False,
             backend: str = _DEFAULT_ANSI_BACKEND, **kwargs
     ) -> str:
@@ -623,12 +643,16 @@ class Styler:
         else:
             align, max_c = None, None
 
-        def _log_val(v):
+        def _log_val(k, v):
             curr_idt = None
             need_indent = isinstance(v, (dict, list)) and len(v) > 0
             if need_indent and curr_indent is not None:  # nest indent further down
                 assert indent_end is not None  # sanity check
-                if curr_indent < indent_end:
+                if indent_config is not None:
+                    indent_end_ = indent_config.get(k, indent_end)
+                else:
+                    indent_end_ = indent_end
+                if curr_indent < indent_end_:
                     curr_idt = curr_indent + 1
             c = with_color
             if value_no_color:
@@ -639,13 +663,14 @@ class Styler:
                 return Styler.style_container(
                     v, with_color=c, pad_float=pad_float, key_value_sep=key_value_sep,
                     pairs_sep=pairs_sep, for_path=for_path, omit_none_val=omit_none_val,
-                    curr_indent=curr_idt, indent_end=indent_end, backend=backend,
-                    brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs
+                    curr_indent=curr_idt, indent_end=indent_end, indent_str=indent_str, no_indent_if_length_1=no_indent_if_length_1,
+                    backend=backend, brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs
                 )
             elif isinstance(v, (list, tuple)):
                 return Styler.style_container(
-                    v, with_color=c, for_path=for_path, curr_indent=curr_idt, indent_end=indent_end, backend=backend,
-                    brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs)
+                    v, with_color=c, for_path=for_path,
+                    curr_indent=curr_idt, indent_end=indent_end, indent_str=indent_str, no_indent_if_length_1=no_indent_if_length_1,
+                    backend=backend, brace_no_color=brace_no_color, color_keys=color_keys, value_no_color=value_no_color, **kwargs)
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
@@ -679,9 +704,12 @@ class Styler:
             if omit_none_val and v_ is None:
                 pairs.append(k)
             else:
-                pairs.append(f'{k}{key_value_sep}{_log_val(v_)}')
+                pairs.append(f'{k}{key_value_sep}{_log_val(k, v_)}')
         pairs_sep_ = pairs_sep
-        if curr_indent is not None:
+        need_indent = curr_indent is not None
+        if need_indent and no_indent_if_length_1 and len(pairs) == 1:
+            need_indent = False
+        if need_indent:
             indent = curr_indent
             out = _adjust_indentation(prefix=pref, postfix=post, sep=pairs_sep_, indent_level=indent, indent_str=indent_str)
             pref, post, pairs_sep_ = out.prefix, out.postfix, out.sep
@@ -717,7 +745,7 @@ if __name__ == '__main__':
         print(style(d))
         print(style(txt))
         print(style(txt, indent=True))
-    check_logi()
+    # check_logi()
 
     def check_nested_log_dict():
         d = dict(a=1, b=2, c=dict(d=3, e=4, f=['as', 'as']))
@@ -874,7 +902,7 @@ if __name__ == '__main__':
         logger.info('hello')
         logger.warning('world')
         logger.error(f"I'm {style('Stefan')}")
-    check_coloring()
+    # check_coloring()
 
     def check_nested_style():
         def show_single(text_: str = None):
@@ -1029,3 +1057,26 @@ if __name__ == '__main__':
         d = dict(a='1%', b='3K', c='10th', d='1st', e='hello')
         print(style(d))
     check_log_num()
+
+    def check_no_indent_if_len_1():
+        lst = ['hello', 'world']
+        print(style(lst, indent=True))
+        lst = ['yo']
+        print(style(lst, indent=True))
+        dct = dict(a='h')
+        print(style(dct, indent=True))
+
+        lst = [dict(a='h')]
+        print(style(lst, indent=True))
+
+        # dct = dict(a=[1])
+        dct = dict(a=[1], b=[2, 3])
+        print(style(dct, indent=True))
+    # check_no_indent_if_len_1()
+
+    def check_custom_indent_cfg():
+        d = dict(a=[1, 2], b=[3, 4])
+        print(style(d, indent=True))
+        print(style(d, indent=1))
+        print(style(d, indent=dict(__default__=1, b=2)))
+    # check_custom_indent_cfg()

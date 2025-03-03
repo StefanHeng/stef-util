@@ -8,15 +8,14 @@ intended for (potentially heavy) data processing
 import os
 import math
 import heapq
-import operator
 import concurrent.futures
-from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union
+from typing import List, Tuple, Dict, Iterable, Callable, TypeVar, Union, Type
 
 from tqdm.std import tqdm as std_tqdm  # root for type check
 from tqdm.auto import tqdm
 from tqdm.contrib import concurrent as tqdm_concurrent
 
-from stefutil.container import group_n
+from stefutil.container import group_n, length_hint
 from stefutil.prettier import check_arg as ca, tqdc
 
 
@@ -32,14 +31,6 @@ BatchedMapFn = Callable[[Tuple[List[T], int, int]], List[K]]
 
 def _check_conc_mode(mode: str):
     ca.assert_options('Concurrency Mode', mode, ['thread', 'process'])
-
-
-def _get_length(it: Iterable[T]) -> int:
-    try:
-        return len(it)  # Try to get the exact length
-    except TypeError:
-        # If obj doesn't support len(), try to get an estimated length
-        return operator.length_hint(it, 0)
 
 
 def conc_map(
@@ -194,7 +185,7 @@ class BatchedFn:
 
 
 def conc_yield(
-        fn: MapFn, args: Iterable[T], fn_kwarg: str = None, with_tqdm: Union[bool, Dict] = False, tqdm_class: std_tqdm = None,
+        fn: MapFn, args: Iterable[T], fn_kwarg: str = None, with_tqdm: Union[bool, Dict] = False, tqdm_class: Type[std_tqdm] = None,
         n_worker: int = os.cpu_count()-1,  # since the calling script consumes one process
         mode: str = 'process', batch_size: Union[int, bool] = None,
         process_chunk_size: int = None, process_chunk_multiplier: int = None, enforce_order: bool = False

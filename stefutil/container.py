@@ -2,6 +2,8 @@
 container operations, including functional, deep dictionary syntactic sugar
 """
 
+
+import operator
 import itertools
 from typing import Tuple, List, Dict, Iterable, Callable, TypeVar, Any, Union
 from functools import reduce
@@ -14,7 +16,8 @@ from stefutil.packaging import _use_dl
 
 __all__ = [
     'get', 'set_', 'it_keys',
-    'list_is_same_elms', 'chain_its', 'join_it', 'group_n', 'split_n', 'list_split', 'lst2uniq_ids', 'compress',
+    'list_is_same_elms', 'chain_its', 'join_it',
+    'group_n', 'length_hint', 'split_n', 'list_split', 'lst2uniq_ids', 'compress',
     'np_index', 'describe', 'df_col2cat_col'
 ]
 
@@ -136,6 +139,14 @@ def join_it(it: Iterable[T], sep: T) -> Iterable[T]:
         yield sep
         yield curr
         curr = next(it, None)
+
+
+def length_hint(it: Iterable[T]) -> int:
+    try:
+        return len(it)  # Try to get the exact length
+    except TypeError:
+        # If obj doesn't support len(), try to get an estimated length
+        return operator.length_hint(it, 0)
 
 
 def group_n(it: Iterable[T], n: int) -> Iterable[Tuple[T]]:

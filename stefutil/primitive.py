@@ -2,14 +2,17 @@
 primitive manipulation
 """
 
+
 import re
 import math
 from typing import List, Any, Union
 
+
 __all__ = [
     'nan',
     'is_int', 'float_is_sci', 'is_float', 'float_is_int', 'is_number',
-    'clean_whitespace', 'get_substr_indices'
+    'clean_whitespace', 'get_substr_indices',
+    'indent_str'
 ]
 
 
@@ -82,6 +85,12 @@ def get_substr_indices(s: str, s_sub: str) -> List[int]:
     return [m.start() for m in re.finditer(s_sub, s)]
 
 
+def indent_str(s: str, indent: Union[int, str] = 4) -> str:
+    if isinstance(indent, int):
+        indent = ' ' * indent
+    return '\n'.join([f'{indent}{x}' for x in s.split('\n')])
+
+
 if __name__ == '__main__':
     def check_int():
         print(is_int(1))
@@ -107,4 +116,33 @@ if __name__ == '__main__':
         print(is_number('1.1th'))
         print(is_number('1.1Mi'))
         print(is_number('M'))
-    check_num_postfix()
+    # check_num_postfix()
+
+    def check_indent():
+        text = """### Store Name: ABC Stores (north)
+
+#### Type
+
+retail
+
+#### Room
+
+[room-145]
+
+#### Categories
+
+Specialty Gifts, Specialty Foods
+
+#### Description
+
+Just another chain of convenience stores? Not really! With friendly store people, great service and large selection of items, we make it easy and convenient to get your favorite treasures, flavors and fragrances of the islands.
+
+#### Opening hours
+
+Mo,Tu,We,Th 9:00-23:00; Fr,Sa 9:00-24:00; Su 9:00-23:00
+
+#### Phone
+
+[phone-702-733-7182]"""
+        print(indent_str(text))
+    check_indent()
