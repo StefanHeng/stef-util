@@ -506,7 +506,7 @@ def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = 
         handler_kd2level = level
     else:
         handler_kd2level = dict(stdout=level, file=level)
-    assert set(level.keys()) == {'stdout', 'file'}  # sanity check
+    assert set(handler_kd2level.keys()) == {'stdout', 'file'}  # sanity check
     min_level = min(_level2int_level(lvl) for lvl in level.values())
     set_logger_handler_level(logger, level=min_level)
 

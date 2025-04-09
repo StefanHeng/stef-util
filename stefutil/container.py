@@ -215,6 +215,10 @@ def describe(vals: Iterable, round_dec: int = None) -> Dict[str, Any]:
     import pandas as pd
     vals: Union[List, np.ndarray]
 
+    if round_dec is None:
+        if any(isinstance(v, float) for v in vals):
+            round_dec = 2
+
     df = pd.DataFrame(vals, columns=['value'])
     ret = df.describe().to_dict()['value']
     if round_dec:
@@ -285,7 +289,7 @@ if __name__ == '__main__':
         ic(d)
         set_(d, 'a.2.d', 'f')
         ic(d)
-    check_set_int()
+    # check_set_int()
 
     def check_split_n():
         def _test(n_it: int = None, n: int = None):
@@ -302,4 +306,24 @@ if __name__ == '__main__':
     def check_desc():
         lst = [1, 2, 3]
         ic(describe(lst))
-    # check_desc()
+
+        lst = [1, 2.2, 3.3, 4.4, 5.5]
+        ic(describe(lst))
+    check_desc()
+
+    def check_chain():
+        import time
+        import random
+
+        from stefutil.prettier import tqdc
+
+        lsts = [
+            [1, 2, 3],
+            [3, 4, 5],
+            [5, 6, 7]
+        ]
+        ic(list(chain_its(lsts)))
+        for item in tqdc(chain_its(lsts)):
+            time.sleep(random.random())
+            ic(item)
+    # check_chain()

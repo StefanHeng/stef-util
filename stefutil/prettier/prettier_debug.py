@@ -2,6 +2,7 @@ import os
 import re
 import json
 import pprint
+from copy import deepcopy
 from typing import Tuple, List, Dict, Iterable, Union, Any
 from pathlib import Path
 from dataclasses import dataclass
@@ -674,21 +675,15 @@ class Styler:
             else:
                 if for_path == 'shorter-bool' and isinstance(v, bool):
                     return 'T' if v else 'F'
-                # Pad only normal, expected floats, intended for metric logging
-                #   suggest 5 for 2 decimal point percentages
-                # elif is_float(v) and pad_float:
-                #     if is_float(v, no_int=True, no_sci=True):
-                #         v = float(v)
-                #         if with_color:
-                #             return PrettyLogger.log(v, c='i', as_str=True, pad=pad_float)
-                #         else:
-                #             return f'{v:>{pad_float}}' if pad_float else v
-                #     else:
-                #         return PrettyLogger.i(v) if with_color else v
                 else:
-                    # return PrettyLogger.i(v) if with_color else v
                     return Styler.style_container(v, with_color=c, pad_float=pad_float, backend=backend, **kwargs)
-        d = d or kwargs or dict()
+        if not d:
+            if kwargs:
+                d = deepcopy(kwargs)
+                for k in ['fg', 'bg', 'c_time', 'pad', 'bold']:  # drop the keyword args for single-value styling
+                    d.pop(k, None)
+            else:
+                d = dict()
         if for_path:
             assert not with_color  # sanity check
             key_value_sep = '='
@@ -1056,7 +1051,7 @@ if __name__ == '__main__':
     def check_log_num():
         d = dict(a='1%', b='3K', c='10th', d='1st', e='hello')
         print(style(d))
-    check_log_num()
+    # check_log_num()
 
     def check_no_indent_if_len_1():
         lst = ['hello', 'world']
@@ -1080,3 +1075,9 @@ if __name__ == '__main__':
         print(style(d, indent=1))
         print(style(d, indent=dict(__default__=1, b=2)))
     # check_custom_indent_cfg()
+
+    def check_empty():
+        print(style(dict()))
+        print(style(list()))
+        print(style(tuple()))
+    check_empty()

@@ -11,8 +11,7 @@ from typing import List, Any, Union
 __all__ = [
     'nan',
     'is_int', 'float_is_sci', 'is_float', 'float_is_int', 'is_number',
-    'clean_whitespace', 'get_substr_indices',
-    'indent_str'
+    'clean_whitespace', 'get_substr_indices'
 ]
 
 
@@ -83,12 +82,6 @@ def clean_whitespace(s: str):
 def get_substr_indices(s: str, s_sub: str) -> List[int]:
     s_sub = re.escape(s_sub)
     return [m.start() for m in re.finditer(s_sub, s)]
-
-
-def indent_str(s: str, indent: Union[int, str] = 4) -> str:
-    if isinstance(indent, int):
-        indent = ' ' * indent
-    return '\n'.join([f'{indent}{x}' for x in s.split('\n')])
 
 
 if __name__ == '__main__':

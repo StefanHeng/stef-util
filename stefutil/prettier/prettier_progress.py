@@ -1,9 +1,11 @@
 import typing
+import logging
 from types import TracebackType
 from typing import Tuple, List, Iterable, Union, Optional, Callable, Sequence
 from typing import BinaryIO, ContextManager, Generic, TextIO, Type, Literal
 from datetime import datetime, timedelta, timezone
 from warnings import warn
+from contextlib import contextmanager
 
 from rich.progress import ProgressType, TaskProgressColumn, ProgressColumn, Progress
 from tqdm.auto import tqdm
@@ -11,6 +13,7 @@ from tqdm.std import TqdmWarning
 from tqdm.utils import FormatReplace, disp_len, disp_trim
 
 from stefutil.os import rel_path
+from stefutil.prettier.prettier import Timer
 from stefutil.prettier.prettier_debug import style, rich_console
 
 
@@ -20,8 +23,18 @@ __all__ = [
 ]
 
 
-def rich_status(desc: str = None, spinner: str = 'arrow3'):
-    return rich_console.status(status=desc, spinner=spinner)
+@contextmanager
+def rich_status(desc: str = None, spinner: str = 'arrow3', transient: bool = False, logger: logging.Logger = None):
+    timer = Timer() if logger else None
+
+    status = rich_console.status(status=desc, spinner=spinner)
+    if not transient:  # the rich live display's `transient` defaults to True and not exposed directly
+        status._live.transient = False
+
+    with status as status:
+        yield status
+    if logger:
+        logger.info(f'{desc or "Task"} finished in {style(timer.end())}.')
 
 
 _I = typing.TypeVar("_I", TextIO, BinaryIO)
@@ -692,7 +705,7 @@ if __name__ == '__main__':
             t_ms = random.randint(5, 300)
             # t_ms = random.randint(5, 10)
             time.sleep(t_ms / 1000)
-    check_tqdm_color()
+    # check_tqdm_color()
 
     def check_rich_open():
         import rich.progress
@@ -722,3 +735,15 @@ if __name__ == '__main__':
                 time.sleep(0.001)
         sic(txt[:10])
     # check_rich_open_large()
+
+    def check_rich_status():
+        import time
+        import random
+
+        from stefutil.prettier.prettier_log import get_logger
+
+        _logger = get_logger('test')
+        _logger.info(fr'ya')
+        with rich_status(desc='task rand', logger=_logger):
+            time.sleep(random.random() * 4)
+    check_rich_status()

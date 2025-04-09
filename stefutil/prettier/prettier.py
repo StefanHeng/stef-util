@@ -11,6 +11,7 @@ from typing import Tuple, Union
 
 
 __all__ = [
+    'indent_str',
     'fmt_num', 'fmt_sizeof', 'fmt_delta', 'sec2mmss', 'round_up_1digit', 'nth_sig_digit', 'ordinal', 'round_f', 'fmt_e', 'to_percent',
     'enclose_in_quote',
     'set_pd_style',
@@ -28,6 +29,12 @@ def set_pd_style():
     pd.set_option('max_colwidth', 40)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.min_rows', 16)
+
+
+def indent_str(s: str, indent: Union[int, str] = 4) -> str:
+    if isinstance(indent, int):
+        indent = ' ' * indent
+    return '\n'.join([f'{indent}{x}' for x in s.split('\n')])
 
 
 def fmt_num(num: Union[float, int], suffix: str = '', n_digit: int = 1) -> str:
@@ -166,7 +173,7 @@ class Timer:
     def start(self):
         self.time_start = datetime.datetime.now()
 
-    def end(self, n_digit_delta: int = None, prettier: Union[bool, datetime.timedelta] = True) -> str:
+    def end(self, n_digit_delta: int = 1, prettier: Union[bool, datetime.timedelta] = True) -> str:
         if self.time_start is None:
             raise ValueError('Counter not started')
 
