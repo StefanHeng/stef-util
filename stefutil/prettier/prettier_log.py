@@ -408,7 +408,7 @@ _logging_kinds = list(dict.fromkeys(_logging_kinds))  # remove duplicates
 
 
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str = None, level: LogLevels = 'debug', file_mode: str = 'a',
+        kind: str = 'stdout', file_path: str | list[str] = None, level: LogLevels = 'debug', file_mode: str = 'a',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
@@ -419,7 +419,7 @@ def get_logging_handler(
         If `std+file`, both stdout and file write handlers
         If `std+file+colored-file`, `both` + file write handlers with ANSI style filtering
         If `file+colored-file`, both file write handlers w/ and w/o ANSI style filtering
-    :param file_path: File path for file logging.
+    :param file_path: File path (or multiple file paths) for file logging.
     :param level: Logging level for the handler.
     :param file_mode: File mode for file logging.
     :param ansi_file_map: Mapping function for the ANSI file handler:
@@ -433,37 +433,57 @@ def get_logging_handler(
             std = get_logging_handler(kind='stdout', level=level)
         if 'colored-file' in kind:
             map_ = ansi_file_map or AnsiFileMap.append_ext
-            fl_ansi = get_logging_handler(kind='colored-file', file_path=map_(file_path), level=level, file_mode=file_mode)
+            if isinstance(file_path, str):
+                file_path_ansi = map_(file_path)
+            else:
+                assert isinstance(file_path, list) and all(isinstance(f, str) for f in file_path)
+                file_path_ansi = [map_(f) for f in file_path]
+            fl_ansi = get_logging_handler(kind='colored-file', file_path=file_path_ansi, level=level, file_mode=file_mode)
 
         if kind == 'std+file':
-            return [std, fl]
+            ret = [std, fl]
         elif kind == 'std+file+colored-file':
-            return [std, fl_ansi, fl]
+            ret = [std, fl_ansi, fl]
         else:
             assert kind == 'file+colored-file'
-            return [fl_ansi, fl]
+            ret = [fl_ansi, fl]
+        # flatten into a list if elements are lists
+        ret_ = []
+        for handler in ret:
+            if isinstance(handler, list):
+                ret_ += handler
+            else:
+                ret_.append(handler)
+        return ret_
+
     else:  # base cases
         if kind == 'stdout':
-            handler = logging.StreamHandler(stream=sys.stdout)  # stdout for my own coloring
+            handlers = [logging.StreamHandler(stream=sys.stdout)]  # stdout for my own coloring
         else:
             assert kind in ['file', 'colored-file']
             if not file_path:
                 raise ValueError(f'{style(file_path)} must be specified for {style("file")} logging')
 
-            dnm = os.path.dirname(file_path)
-            if dnm and not os.path.exists(dnm):
-                os.makedirs(dnm, exist_ok=True)
+            if isinstance(file_path, str):
+                file_path = [file_path]
+            handlers = []
+            for file_path_ in file_path:
+                dnm = os.path.dirname(file_path_)
+                if dnm and not os.path.exists(dnm):
+                    os.makedirs(dnm, exist_ok=True)
 
-            # i.e., when `colored-file`, use the default file handler - no filter out for the ANSI chars
-            cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
-            handler = cls(file_path, mode=file_mode)
+                # i.e., when `colored-file`, use the default file handler - no filter out for the ANSI chars
+                cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
+                handlers.append(cls(file_path_, mode=file_mode))
         if isinstance(level, dict):
             level = level['stdout' if kind == 'stdout' else 'file']
-        if level:
-            set_logger_handler_level(handler, level=level)
-        handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'colored-file']))
-        handler.addFilter(HandlerFilter(handler_name=kind))
-        return handler
+
+        for handler in handlers:
+            if level:
+                set_logger_handler_level(handler, level=level)
+            handler.setFormatter(MyFormatter(with_color=kind in ['stdout', 'colored-file']))
+            handler.addFilter(HandlerFilter(handler_name=kind))
+        return handlers
 
 
 def drop_file_handler(logger: logging.Logger = None):
@@ -480,7 +500,10 @@ def drop_file_handler(logger: logging.Logger = None):
     return logger
 
 
-def add_log_handler(logger: logging.Logger = None, level: LogLevels = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+def add_log_handler(
+        logger: logging.Logger = None, level: LogLevels = None, file_path: str | list[str] = None, kind: str = 'file', 
+        drop_prev_handlers: bool = True
+):
     """
     Adds handler(s) to the logger
     """
@@ -523,7 +546,7 @@ def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = 
 
 
 def get_logger(
-        name: str, kind: str = 'stdout', level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_path: str = None
+        name: str, kind: str = 'stdout', level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_path: str | list[str] = None
 ) -> logging.Logger:
     """
     :param name: name of the logger.
@@ -615,7 +638,12 @@ ca.cache_options(  # See `stefutil::plot.py`
 
 
 if __name__ == '__main__':
+    from rich.traceback import install
+
     from stefutil.prettier.prettier_debug import sic
+
+    install(show_locals=False)
+    sic.output_width = 128
 
     # lg = get_logger('test')
     # lg.info('test')
@@ -741,4 +769,14 @@ if __name__ == '__main__':
         lg.warning('warning')
         lg.error('error')
         lg.critical('critical')
-    check_diff_log_level()
+    # check_diff_log_level()
+
+    def check_muti_file_log():
+        fls = ['log1.log', 'log2.log']
+        lg = get_logger('test', kind='std+file+colored-file', file_path=fls)
+        lg.info('hey')
+
+        fls = ['log1.log']
+        lg = get_logger('test', kind='std+file+colored-file', file_path=fls)
+        lg.info('hey again')
+    check_muti_file_log()

@@ -66,7 +66,8 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
 # modified from `rich.progress.open` for our custom progress bar styling
 def rich_open(
     file: Union[str, "PathLike[str]", bytes],
-    mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r"
+    mode: Union[Literal["rb"], Literal["rt"], Literal["r"]] = "r",
+    encoding: Optional[str] = None,
 ) -> Union[ContextManager[BinaryIO], ContextManager[TextIO]]:
     desc = f'Reading file {style(rel_path(file), backend="rich-markup")}'
     progress = rich_progress(return_progress=True, desc=desc, for_file=True)
@@ -74,7 +75,8 @@ def rich_open(
     reader = progress.open(
         file,
         mode=mode,
-        description=desc,
+        encoding=encoding,
+        description=desc
     )
     return _ReadContext(progress, reader)
 
@@ -713,7 +715,7 @@ if __name__ == '__main__':
         # path = '../../stefutil/../stefutil/test-both-handler.log.ansi'
         path = 'test-diff-log-level-start-std.log.ansi'
         # with rich.progress.open(path, 'r') as f:
-        with rich_open(path) as f:
+        with rich_open(path, 'r', encoding='utf-8') as f:
             txt = f.read()
         sic(txt)
     check_rich_open()
