@@ -82,9 +82,9 @@ def _adjust_indentation(
 
 def _get_container_max_depth(x: Union[Dict, Dict, Tuple, str, Any]) -> int:
     if isinstance(x, dict):
-        return 1 + max(_get_container_max_depth(v) for v in x.values())
+        return 1 + max((_get_container_max_depth(v) for v in x.values()), default=0)
     elif isinstance(x, list):
-        return 1 + max(_get_container_max_depth(e) for e in x)
+        return 1 + max((_get_container_max_depth(e) for e in x), default=0)
     # consider tuple as a static value/non-container
     return 0
 
@@ -1080,4 +1080,17 @@ if __name__ == '__main__':
         print(style(dict()))
         print(style(list()))
         print(style(tuple()))
-    check_empty()
+    # check_empty()
+
+    def check_neg_indent():
+        lst = [
+              {'query': 'Where can I find a good selection of sunglasses?',
+               'retrieved-docs': {'found': [('Solstice Sunglasses', 0.05),
+                                            ('Sunglass Hut (south)', 0.037),
+                                            ('Sunglass Hut (north)', 0.033),
+                                            ('Quay Australia', 0.032),
+                                            ('Oakley', 0.021)],
+                                  'missing': []},
+               'retrieval-acc': 1.0}]
+        print(style(lst, indent=-1))
+    check_neg_indent()

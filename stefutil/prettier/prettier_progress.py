@@ -1,3 +1,4 @@
+import os
 import typing
 import logging
 from types import TracebackType
@@ -49,7 +50,7 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
         self.reader: _I = reader
 
     def __enter__(self) -> _I:
-        self.progresstyletart()
+        self.progress.start()
         return self.reader.__enter__()
 
     def __exit__(
@@ -58,7 +59,7 @@ class _ReadContext(ContextManager[_I], Generic[_I]):
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
-        self.progresstyletop()
+        self.progress.stop()
         self.reader.__exit__(exc_type, exc_val, exc_tb)
 
 
@@ -709,12 +710,13 @@ if __name__ == '__main__':
 
     def check_rich_open():
         import rich.progress
-        path = '../../stefutil/../stefutil/test-both-handler.log.ansi'
+        # path = '../../stefutil/../stefutil/test-both-handler.log.ansi'
+        path = 'test-diff-log-level-start-std.log.ansi'
         # with rich.progress.open(path, 'r') as f:
         with rich_open(path) as f:
             txt = f.read()
         sic(txt)
-    # check_rich_open()
+    check_rich_open()
 
     def check_rich_open_large():
         def write_large():
@@ -746,4 +748,4 @@ if __name__ == '__main__':
         _logger.info(fr'ya')
         with rich_status(desc='task rand', logger=_logger):
             time.sleep(random.random() * 4)
-    check_rich_status()
+    # check_rich_status()

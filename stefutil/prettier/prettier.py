@@ -8,6 +8,7 @@ import math
 import string
 import datetime
 from typing import Tuple, Union
+from collections import Counter
 
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
 
     'str2ascii_str', 'sanitize_str',
     'hex2rgb',
+    'counter_with_percent',
     'Timer',
 ]
 
@@ -159,6 +161,18 @@ def hex2rgb(hx: str, normalize=False) -> Union[Tuple[int, ...], Tuple[float, ...
     return tuple(i/255 for i in ret) if normalize else ret
 
 
+def counter_with_percent(c: Counter, colored: bool = False):
+    ret = dict(c.most_common())
+    total = sum(c.values())
+    for k, count in ret.items():
+        percent = to_percent(count / total)
+        if colored:
+            from stefutil.prettier.prettier_debug import style
+            percent = style(percent)
+        ret[k] = f'{count} ({percent})'
+    return ret
+
+
 class Timer:
     """
     Counts elapsed time and report in a pretty format
@@ -245,4 +259,12 @@ if __name__ == '__main__':
         sic(fmt_num(n, n_digit=1))
         sic(fmt_num(n, n_digit=2))
         sic(fmt_num(n, n_digit=3))
-    check_fmt_num()
+    # check_fmt_num()
+
+    def check_counter():
+        from collections import Counter
+        c = Counter({'a': 1, 'b': 2, 'c': 3})
+        sic(c)
+        print(style(counter_with_percent(c, colored=True), indent=1, render_nested_style=True))
+        print(style(counter_with_percent(c, colored=False), indent=1))
+    # check_counter()
