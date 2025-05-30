@@ -408,7 +408,8 @@ _logging_kinds = list(dict.fromkeys(_logging_kinds))  # remove duplicates
 
 
 def get_logging_handler(
-        kind: str = 'stdout', file_path: str | list[str] = None, level: LogLevels = 'debug', file_mode: str = 'a',
+        kind: str = 'stdout', file_path: str | list[str] = None, level: LogLevels = 'debug', 
+        file_mode: str = 'a', encoding: str = 'utf-8',
         ansi_file_map: Callable[[str], str] = AnsiFileMap.append_ext
 ) -> Union[logging.Handler, List[logging.Handler]]:
     """
@@ -422,12 +423,13 @@ def get_logging_handler(
     :param file_path: File path (or multiple file paths) for file logging.
     :param level: Logging level for the handler.
     :param file_mode: File mode for file logging.
+    :param encoding: Encoding for file logging.
     :param ansi_file_map: Mapping function for the ANSI file handler:
         Returns the mapped file path for ANSI given the original file path.
     """
     if kind in _mult_logging_kinds:  # recursive case
         std, fl_ansi = None, None
-        fl = get_logging_handler(kind='file', file_path=file_path, level=level, file_mode=file_mode)
+        fl = get_logging_handler(kind='file', file_path=file_path, level=level, file_mode=file_mode, encoding=encoding)
 
         if 'std' in kind:
             std = get_logging_handler(kind='stdout', level=level)
@@ -438,7 +440,7 @@ def get_logging_handler(
             else:
                 assert isinstance(file_path, list) and all(isinstance(f, str) for f in file_path)
                 file_path_ansi = [map_(f) for f in file_path]
-            fl_ansi = get_logging_handler(kind='colored-file', file_path=file_path_ansi, level=level, file_mode=file_mode)
+            fl_ansi = get_logging_handler(kind='colored-file', file_path=file_path_ansi, level=level, file_mode=file_mode, encoding=encoding)
 
         if kind == 'std+file':
             ret = [std, fl]
@@ -474,7 +476,7 @@ def get_logging_handler(
 
                 # i.e., when `colored-file`, use the default file handler - no filter out for the ANSI chars
                 cls = CleanAnsiFileHandler if kind == 'file' else logging.FileHandler
-                handlers.append(cls(file_path_, mode=file_mode))
+                handlers.append(cls(file_path_, mode=file_mode, encoding=encoding))
         if isinstance(level, dict):
             level = level['stdout' if kind == 'stdout' else 'file']
 
@@ -501,13 +503,13 @@ def drop_file_handler(logger: logging.Logger = None):
 
 
 def add_log_handler(
-        logger: logging.Logger = None, level: LogLevels = None, file_path: str | list[str] = None, kind: str = 'file', 
-        drop_prev_handlers: bool = True
+        logger: logging.Logger = None, level: LogLevels = None, file_path: str | list[str] = None, kind: str = 'file',
+        drop_prev_handlers: bool = True, log_handler_kwargs: dict = None
 ):
     """
     Adds handler(s) to the logger
     """
-    handlers = get_logging_handler(kind=kind, file_path=file_path, level=level)
+    handlers = get_logging_handler(kind=kind, file_path=file_path, level=level, **(log_handler_kwargs or {}))
 
     if drop_prev_handlers:
         drop_file_handler(logger=logger)
@@ -519,9 +521,9 @@ def add_log_handler(
     return logger
 
 
-def add_file_handler(logger: logging.Logger = None, level: LogLevels = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True):
+def add_file_handler(logger: logging.Logger = None, level: LogLevels = None, file_path: str = None, kind: str = 'file', drop_prev_handlers: bool = True, log_handler_kwargs: dict = None):
     assert kind in _file_logging_kinds, f'Handler kind {style(kind)} not recognized'
-    return add_log_handler(logger=logger, level=level, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers)
+    return add_log_handler(logger=logger, level=level, file_path=file_path, kind=kind, drop_prev_handlers=drop_prev_handlers, log_handler_kwargs=log_handler_kwargs)
 
 
 def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = None):
@@ -546,7 +548,8 @@ def set_logger_handler_levels(logger: logging.Logger = None, level: LogLevels = 
 
 
 def get_logger(
-        name: str, kind: str = 'stdout', level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_path: str | list[str] = None
+        name: str, kind: str = 'stdout', level: Union[LogLevel, Dict[str, LogLevel]] = 'debug', file_path: str | list[str] = None,
+        log_handler_kwargs: dict = None
 ) -> logging.Logger:
     """
     :param name: name of the logger.
@@ -573,7 +576,7 @@ def get_logger(
         min_level = level
     set_logger_handler_level(logger, level=min_level)
 
-    add_log_handler(logger, level=level if need_detailed_filtering else None, file_path=file_path, kind=kind)
+    add_log_handler(logger, level=level if need_detailed_filtering else None, file_path=file_path, kind=kind, log_handler_kwargs=log_handler_kwargs)
     logger.propagate = False
     return logger
 
@@ -779,4 +782,14 @@ if __name__ == '__main__':
         fls = ['log1.log']
         lg = get_logger('test', kind='std+file+colored-file', file_path=fls)
         lg.info('hey again')
-    check_muti_file_log()
+    # check_muti_file_log()
+
+    def check_encoding():
+        enc = 'utf-8'
+        # enc = 'ascii'
+        # enc = 'charmap'
+        # log_args = dict(encoding=enc)
+        log_args = dict()
+        lg = get_logger('test', kind='std+file+colored-file', file_path='log1.log', log_handler_kwargs=log_args)
+        lg.info('hey 中文 \ufffd')
+    check_encoding()
