@@ -10,6 +10,8 @@ import logging
 from typing import List, Dict, Iterable, Callable, Any, Union
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
 from stefutil.prettier import style as s, check_arg as ca, get_logger, Timer
 from stefutil.container import df_col2cat_col
 from stefutil.packaging import installed_packages, _use_plot, _use_ml
@@ -155,30 +157,122 @@ if _use_plot():
             plt.show()
         return ax
 
-    def confidence_ellipse(ax_, x, y, n_std=1., **kws):
-        """
-        Modified from https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
-        Create a plot of the covariance confidence ellipse of x and y
 
-        :param ax_: matplotlib axes object to plot ellipse on
-        :param x: x values
-        :param y: y values
-        :param n_std: number of standard deviations to determine the ellipse's radius'
-        :return matplotlib.patches.Ellipse
+    class AnalyzeDistOutput(BaseModel):
+        top_n_values: dict[int, float] | None = None
+        percentile_cutoffs: dict[float, float] | None = None
+
+
+    def analyze_n_plot_dist(
+            values: 'np.array' = None, save_path: str = None, title: str = None, xlabel: str = None, plot: bool = True,
+            top_n: int = None, percentiles: list[float] = None,
+            additional_values: dict[str, 'np.array'] = None,
+            logger: logging.Logger = _logger, percentile_log_decimal: int = 2
+    ) -> AnalyzeDistOutput:
         """
-        cov = np.cov(x, y)
-        pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
-        r_x, r_y = np.sqrt(1 + pearson), np.sqrt(1 - pearson)
-        _args = {**dict(fc='none'), **kws}
-        ellipse = Ellipse((0, 0), width=r_x * 2, height=r_y * 2, **_args)
-        scl_x, scl_y = np.sqrt(cov[0, 0]) * n_std, np.sqrt(cov[1, 1]) * n_std
-        mu_x, mu_y = np.mean(x), np.mean(y)
-        tsf = transforms.Affine2D().rotate_deg(45).scale(scl_x, scl_y).translate(mu_x, mu_y)
-        ellipse.set_transform(tsf + ax_.transData)
-        return ax_.add_patch(ellipse)
+        Plot the distribution of some values side by side
+            left: histogram, right: cumulative histogram
+        """
+        from os.path import join as os_join
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        from stefutil.prettier import style, round_f, now
+
+        vals = np.asarray(values)
+
+        idx2val, p2c = None, None
+        if top_n:  # log top largest values along w/ the indices
+            idxs = np.argsort(vals)[-top_n:]
+            idx2val = dict(zip(idxs, vals[idxs]))
+            logger.info(f'{xlabel.capitalize()} top {style(top_n)} largest values: {style(idx2val, indent=1)}')
+
+        if percentiles:
+            # get the percentile cutoffs
+            assert all(0 <= p <= 1 for p in percentiles)  # sanity check
+            percentiles = sorted([p * 100 for p in percentiles])
+
+            cutoffs = np.percentile(vals, percentiles)
+            p2c = dict(zip(percentiles, cutoffs))
+            logger.info(f'{xlabel.capitalize()} percentile cutoffs: {style({p: round_f(c, decimal=percentile_log_decimal) for p, c in p2c.items()}, indent=1)}')
+
+        if plot:
+            # default on left, a cumulative one on the right
+            fig, axs = plt.subplots(1, 2, figsize=(16, 9))
+
+            has_more_val = additional_values and len(additional_values)
+
+            args_left = dict(stat='percent', kde=True, ax=axs[0])
+            args_right = dict(stat='percent', cumulative=True, fill=False, element='step', ax=axs[1])
+
+            if has_more_val:
+                import pandas as pd
+
+                additional_values = {k: np.asarray(v) for k, v in additional_values.items()}
+                # plot each of them independently by `hue`
+                rows = [dict(kind=xlabel, value=val) for val in vals]
+                for k, v in additional_values.items():
+                    rows.extend([dict(kind=k, value=val) for val in v])
+                df = pd.DataFrame(rows)
+                sns.histplot(data=df, x='value', hue='kind', **args_left)
+                sns.histplot(data=df, x='value', hue='kind', **args_right)
+
+            else:
+                sns.histplot(vals, **args_left)
+                sns.histplot(vals, **args_right)
+
+            if percentiles:
+                # add vertical lines for the percentile cutoffs to the cumulative plot
+                cs = sns.color_palette(palette='husl', n_colors=len(p2c))
+                for color, (p, c) in zip(cs, p2c.items()):
+                    axs[1].axvline(c, color=color, linestyle='--', label=f'{p}% cutoff', linewidth=0.5)
+
+            if has_more_val or percentiles:
+                plt.legend()
+
+            title = title or 'Dist. of values'
+            xlab = xlabel or 'value'
+            plt.suptitle(title)
+            fig.supxlabel(f'{xlab}')
+            fig.supylabel(f'% of {xlab}')
+            plt.tight_layout()
+
+            if save_path:
+                time = now(fmt='short-full', for_path=True)
+                title = title.replace(' ', '-')
+                fnm = f'{time}_{title}.png'
+                path = os_join(save_path, fnm)
+                logger.info(f'Saving distribution plot to {style(path)}...')
+                plt.savefig(path, dpi=300)
+
+        return AnalyzeDistOutput(top_n_values=idx2val, percentile_cutoffs=p2c)
 
     if _use_ml():
         __all__ += ['VecProjOutput', 'vector_projection_plot']
+
+        def confidence_ellipse(ax_, x, y, n_std=1., **kws):
+            """
+            Modified from https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
+            Create a plot of the covariance confidence ellipse of x and y
+
+            :param ax_: matplotlib axes object to plot ellipse on
+            :param x: x values
+            :param y: y values
+            :param n_std: number of standard deviations to determine the ellipse's radius'
+            :return matplotlib.patches.Ellipse
+            """
+            cov = np.cov(x, y)
+            pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
+            r_x, r_y = np.sqrt(1 + pearson), np.sqrt(1 - pearson)
+            _args = {**dict(fc='none'), **kws}
+            ellipse = Ellipse((0, 0), width=r_x * 2, height=r_y * 2, **_args)
+            scl_x, scl_y = np.sqrt(cov[0, 0]) * n_std, np.sqrt(cov[1, 1]) * n_std
+            mu_x, mu_y = np.mean(x), np.mean(y)
+            tsf = transforms.Affine2D().rotate_deg(45).scale(scl_x, scl_y).translate(mu_x, mu_y)
+            ellipse.set_transform(tsf + ax_.transData)
+            return ax_.add_patch(ellipse)
 
         @dataclass
         class VecProjOutput:
